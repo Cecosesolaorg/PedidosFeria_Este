@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Coordinacion Feria Del Este Pedidos</title>
+    <title>Buscador de Productos con Vista Previa</title>
     <!-- Incluir Tailwind CSS desde CDN para un diseño moderno y adaptable -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Incluir la librería SheetJS para exportar a Excel -->
@@ -241,12 +241,18 @@
     <div id="mainContainer" class="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8 relative">
         <!-- Título principal actualizado -->
         <h1 class="text-3xl md:text-4xl font-bold text-center mb-6 text-gray-800">
-            Pedido de Coordinacion Viveres Feria Del Este
+            Pedido de Coordinacion Viveres
         </h1>
         <!-- Botón de ayuda que activa el modal -->
         <button id="helpBtn" class="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </button>
+        <!-- Botón para añadir responsables -->
+        <button id="addResponsablesBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </button>
         <!-- Botón para volver a la lista principal -->
@@ -262,7 +268,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 w-full">
                 <button id="filterSelectedBtn" class="filter-button text-base py-2">Productos Seleccionados</button>
                 <button id="filterPanesBtn" class="filter-button text-base py-2">Pedido de Panes</button>
-                <button id="filterPolarBtn" class="filter-button text-base py-2">Productos De La Polar</button>
+                <button id="filterPolarBtn" class="filter-button text-base py-2">Pedido De La Polar</button>
                 <button id="directOrderBtn" class="filter-button text-base py-2">Pedido Directo</button>
             </div>
             
@@ -279,7 +285,7 @@
             <!-- Botones para exportar y pedido directo -->
             <div class="flex flex-col sm:flex-row gap-2 w-full">
                 <button id="exportImageBtn" class="export-button bg-blue-500 hover:bg-blue-600 flex-1 py-2">
-                    Descargar como Imagen
+                    Descargar Imagen y Compartir
                 </button>
                 <button id="exportExcelBtn" class="export-button bg-blue-500 hover:bg-blue-600 flex-1 py-2">
                     Exportar a Excel
@@ -380,44 +386,60 @@
         </div>
     </div>
     
+    <!-- Modal para Compartir (oculto por defecto) -->
+    <div id="shareModal" class="modal-overlay hidden">
+        <div class="warning-modal text-center p-6">
+            <h3 class="text-2xl font-bold text-gray-900 mb-4">Compartir Pedido</h3>
+            <p class="text-gray-700 mb-6">Elige una opción para tu imagen de pedido.</p>
+            <div class="flex flex-col gap-4">
+                <button id="downloadImageFromShareModalBtn" class="bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-blue-600">
+                    Descargar Imagen
+                </button>
+                <button id="shareToWhatsAppBtn" class="bg-green-500 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-green-600">
+                    Compartir a WhatsApp
+                </button>
+                <button id="cancelShareBtn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-gray-300 mt-2">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal de Ayuda (oculto por defecto) -->
     <div id="helpModal" class="modal-overlay hidden">
-        <div class="help-modal text-center p-6">
+        <div class="help-modal p-6">
             <h3 class="text-2xl font-bold text-gray-900 mb-4">Ayuda</h3>
-            <p class="text-gray-700 text-left mb-4">
-                Esta aplicación te permite gestionar un pedido de víveres de forma sencilla.
+            <p class="text-gray-700 mb-4">
+                Bienvenido al sistema de pedidos. Aquí tienes una guía rápida:
             </p>
-            <ul class="list-disc list-inside text-gray-700 text-left mb-6 space-y-2">
-                <li>
-                    <span class="font-semibold">Buscar Productos:</span> Usa el campo de búsqueda para encontrar productos por nombre.
-                </li>
-                <li>
-                    <span class="font-semibold">Filtrar:</span>
-                    <ul class="list-disc list-inside pl-5">
-                        <li>
-                            <span class="font-semibold">Productos Seleccionados:</span> Muestra solo los productos que has añadido a tu pedido.
-                        </li>
-                        <li>
-                            <span class="font-semibold">Pedido de Panes:</span> Filtra para ver únicamente productos relacionados del pedido llamado panes.
-                        </li>
-                        <li>
-                            <span class="font-semibold">Productos De La Polar:</span> Filtra para ver únicamente productos relacionados del pedido llamado polar.
-                        </li>
-                    </ul>
-                </li>
-                <li>
-                    <span class="font-semibold">Pedido Directo:</span> Toca este botón para mostrar productos por empresa .
-                </li>
-                <li>
-                    <span class="font-semibold">Seleccionar Cantidad:</span> Toca cualquier producto para abrir una calculadora y definir la cantidad que necesitas.
-                </li>
-                <li>
-                    <span class="font-semibold">Exportar:</span> Usa los botones de "Descargar como Imagen" o "Exportar a Excel" para guardar tu pedido.
-                </li>
+            <ul class="list-disc list-inside text-gray-700 space-y-2">
+                <li>Haz clic en un producto para añadir o editar la cantidad.</li>
+                <li>Usa los filtros para navegar por categorías de productos.</li>
+                <li>En "Productos Seleccionados" puedes ver y eliminar los productos de tu pedido.</li>
+                <li>Usa los botones de exportación para generar un archivo Excel o una imagen de tu pedido.</li>
+                 <li>Presiona el botón de 'añadir' para incluir los responsables del pedido.</li>
             </ul>
-            <div class="flex justify-center">
-                <button id="closeHelpModalBtn" class="bg-blue-500 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors duration-200 hover:bg-blue-600">
-                    Entendido
+            <button id="closeHelpModalBtn" class="mt-6 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg w-full hover:bg-blue-600">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal para Añadir Responsables (oculto por defecto) -->
+    <div id="responsablesModal" class="modal-overlay hidden">
+        <div class="warning-modal text-center p-6">
+            <h3 class="text-2xl font-bold text-gray-900 mb-4">Añadir Responsables</h3>
+            <p class="text-gray-700 mb-6">Introduce los nombres de los responsables del pedido.</p>
+            <div class="flex flex-col gap-4 mb-4">
+                <input type="text" id="responsable1Input" placeholder="Nombre del responsable 1..." class="w-full p-2 border border-gray-300 rounded-lg">
+                <input type="text" id="responsable2Input" placeholder="Nombre del responsable 2..." class="w-full p-2 border border-gray-300 rounded-lg">
+            </div>
+            <div class="flex justify-center gap-4">
+                <button id="cancelResponsablesBtn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-300">
+                    Cancelar
+                </button>
+                <button id="confirmResponsablesBtn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-600">
+                    Confirmar
                 </button>
             </div>
         </div>
@@ -875,10 +897,25 @@
         const helpModal = document.getElementById('helpModal');
         const closeHelpModalBtn = document.getElementById('closeHelpModalBtn');
 
+        // Elementos del modal de responsables
+        const addResponsablesBtn = document.getElementById('addResponsablesBtn');
+        const responsablesModal = document.getElementById('responsablesModal');
+        const responsable1Input = document.getElementById('responsable1Input');
+        const responsable2Input = document.getElementById('responsable2Input');
+        const cancelResponsablesBtn = document.getElementById('cancelResponsablesBtn');
+        const confirmResponsablesBtn = document.getElementById('confirmResponsablesBtn');
+
+        // Modal de compartir
+        const shareModal = document.getElementById('shareModal');
+        const downloadImageFromShareModalBtn = document.getElementById('downloadImageFromShareModalBtn');
+        const shareToWhatsAppBtn = document.getElementById('shareToWhatsAppBtn');
+        const cancelShareBtn = document.getElementById('cancelShareBtn');
+
         let currentQuantity = '';
         let currentProduct = null;
         let searchTimeout;
         let productIdToDelete = null;
+        let responsables = ['', ''];
 
         let filters = {
             selected: false,
@@ -975,8 +1012,10 @@
 
             if (isAnyFilterActive) {
                 mainCloseBtn.classList.remove('hidden');
+                addResponsablesBtn.classList.add('hidden'); // Ocultar el botón de responsables
             } else {
                 mainCloseBtn.classList.add('hidden');
+                addResponsablesBtn.classList.remove('hidden'); // Mostrar el botón de responsables
             }
 
             if (filters.selected) {
@@ -1129,8 +1168,14 @@
             ws['!cols'] = [{ width: 52 }, { width: 23 }, { width: 23 }, { width: 23 }, { width: 15 }, { width: 15 }];
 
             // Encabezados de información
-            const orderTitle = 'FERIA ESTE';
-            const infoHeaders = [[dateString], ['RESPONSABLES', '']];
+            let orderTitle = 'FERIA ESTE';
+            if (filters.polar) {
+                orderTitle = 'PEDIDO DE LA POLAR';
+            } else if (filters.panes) {
+                orderTitle = 'PEDIDO DE LA CAVA';
+            }
+            const responsablesString = responsables.filter(r => r).join('-');
+            const infoHeaders = [[dateString], ['RESPONSABLES: ' + responsablesString]];
 
             // Escribir el título y los encabezados de información en la hoja
             XLSX.utils.sheet_add_aoa(ws, [[orderTitle]], { origin: 'C1' });
@@ -1140,9 +1185,7 @@
 
             // Escribir los datos de los productos ajustados a las nuevas columnas
             const productData = selectedProducts.map(product => {
-                // MODIFICACIÓN: Mostrar solo el número de la cantidad, sin la unidad.
                 const quantityText = product.quantity;
-
                 return [
                     product.name,
                     quantityText,
@@ -1172,9 +1215,23 @@
             ws['!merges'].push({ s: { r: 0, c: 2 }, e: { r: 0, c: 5 } }); // Combina C1, D1, E1, F1
 
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "PEDIDO DE FIERIA ESTE ");
             
-            XLSX.writeFile(wb, `Pedido de Feria del Este ${dateString}.xlsx`);
+            let sheetName = "PEDIDO DE FERIA ESTE";
+            if (filters.polar) {
+                sheetName = "Pedido De La Polar";
+            } else if (filters.panes) {
+                sheetName = "Pedido De La Cava";
+            }
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            
+            let fileName = `Pedido de Feria del Este ${day}-${month}-${year}.xlsx`;
+            if (filters.polar) {
+                fileName = 'Pedido De La Polar Feria del Este 27-09-2025.xlsx';
+            } else if (filters.panes) {
+                fileName = 'Pedido De La Cava Feria Del Este 27-09-2025.xlsx';
+            }
+
+            XLSX.writeFile(wb, fileName);
         }
 
         // --- FUNCIÓN MODIFICADA ---
@@ -1193,10 +1250,11 @@
 
             const data = [];
 
+            const responsablesString = responsables.filter(r => r).join('-');
             // Fila 1: Fecha en A1, B1 vacía, Título en C1
-            data.push([`FECHA:${dateStringForHeader}`, null, 'PEDIDO DIRECTO']);
+            data.push([`FECHA:${dateStringForHeader}`, null, 'PEDIDO DIRECTO FERIA ESTE']);
             // Fila 2: Responsable en A2
-            data.push(['RESPONSABLE:']);
+            data.push(['RESPONSABLE: ' + responsablesString]);
             // Fila 3: Encabezados de columna
             data.push(['PRODUCTO', 'FERIA DEL ESTE', 'FERIA DEL CENTRO', 'FERIA DE RUIZ PINEDA', 'TOTAL', 'UNIDAD']);
 
@@ -1259,22 +1317,18 @@
             ws['!merges'].push({ s: { r: 0, c: 2 }, e: { r: 0, c: 5 } });
 
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Pedido Directo");
+            XLSX.utils.book_append_sheet(wb, ws, "PEDIDO DIRECTO FERIA ESTE");
             
-            XLSX.writeFile(wb, `Pedido_Directo_${dateStringForFile}.xlsx`);
+            XLSX.writeFile(wb, `PEDIDO_DIRECTO_FERIA_ESTE_${dateStringForFile}.xlsx`);
             showMessage('Pedido Directo exportado con éxito.', '#86efac', '#166534');
         }
         
-        async function exportToImage() {
+        async function generateOrderImage() {
+            // Esta función genera la imagen del pedido y devuelve la URL de datos base64.
+            // Devuelve nulo si no hay productos seleccionados.
             if (selectedProducts.length === 0) {
                 showMessage('No hay productos seleccionados para exportar.', '#fca5a5', '#7f1d1d');
-                return;
-            }
-
-            const container = document.getElementById('selectedProductsContainer');
-            if (container.classList.contains('hidden')) {
-                showMessage('Debes estar en la vista de Productos Seleccionados para exportar a imagen.', '#fca5a5', '#7f1d1d');
-                return;
+                return null;
             }
             
             const contentToCapture = document.createElement('div');
@@ -1288,19 +1342,29 @@
             const year = today.getFullYear();
             const dateString = `FECHA: ${day}-${month}-${year}`;
             
+            const responsablesString = responsables.filter(r => r).join(' - ');
+            
             contentToCapture.innerHTML = `
-                <div class="text-center font-bold text-xl mb-4 text-gray-800">
+                <div class="text-center font-bold text-xl mb-3 text-gray-800">
                     Pedido de Viveres
                 </div>
-                <div class="flex justify-between items-center text-xs text-gray-600 mb-4">
-                    <span>${dateString}</span>
-                    <span>FERIA ESTE</span>
+                <div class="text-xs text-gray-600 mb-1 text-center">
+                    <span>${dateString}</span> | <span>FERIA ESTE</span>
                 </div>
+                ${responsablesString ? `<div class="text-xs text-gray-600 mb-3 text-center"><span class="font-bold">RESPONSABLES:</span> ${responsablesString}</div>` : '<div class="mb-2"></div>'}
                 <div id="captureList" class="flex flex-col gap-2"></div>
             `;
             
             const captureList = contentToCapture.querySelector('#captureList');
-            selectedProducts.forEach(product => {
+            
+            // Crear una copia ordenada de los productos para que la imagen sea consistente con la vista
+            const sortedProducts = [...selectedProducts].sort((a, b) => {
+                const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            sortedProducts.forEach(product => {
                 const item = document.createElement('div');
                 item.classList.add('bg-blue-50', 'p-3', 'rounded-lg', 'flex', 'justify-between', 'items-center', 'text-sm');
                 item.innerHTML = `
@@ -1318,8 +1382,39 @@
             });
 
             document.body.removeChild(contentToCapture);
+            return canvas.toDataURL('image/png');
+        }
 
-            const image = canvas.toDataURL('image/png');
+        async function shareToWhatsApp() {
+            const image = await generateOrderImage();
+            if (!image) return;
+
+            try {
+                // Convertir base64 a blob
+                const response = await fetch(image);
+                const blob = await response.blob();
+                const file = new File([blob], 'pedido.png', { type: blob.type });
+
+                // Comprobar si la API de Web Share es compatible
+                if (navigator.share && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Pedido de Viveres',
+                        text: 'Aquí está el pedido de viveres.',
+                    });
+                    showMessage('Pedido compartido con éxito.', '#86efac', '#166534');
+                } else {
+                    showMessage('La función de compartir no es compatible con este navegador. Por favor, descarga la imagen y compártela manualmente.', '#fca5a5', '#7f1d1d');
+                }
+            } catch (error) {
+                console.error('Error al compartir:', error);
+                showMessage('Ocurrió un error al intentar compartir. Por favor, inténtalo de nuevo.', '#fca5a5', '#7f1d1d');
+            }
+        }
+        
+        async function exportToImage() {
+            const image = await generateOrderImage();
+            if (!image) return; // Si la generación de imagen falla, no hacer nada.
             
             // Mostrar el modal de vista previa en lugar de descargar directamente
             previewImage.src = image;
@@ -1328,6 +1423,11 @@
             const downloadImage = () => {
                 const link = document.createElement('a');
                 link.href = image;
+                const today = new Date();
+                const day = String(today.getDate()).padStart(2, '0');
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const year = today.getFullYear();
+                const dateString = `${day}-${month}-${year}`;
                 link.download = `Pedido_de_Viveres_${dateString}.png`;
                 document.body.appendChild(link);
                 link.click();
@@ -1553,7 +1653,15 @@
         document.querySelector('.calculator-buttons-grid').addEventListener('click', handleCalculatorClick);
         
         exportExcelBtn.addEventListener('click', exportToExcel);
-        exportImageBtn.addEventListener('click', exportToImage);
+        
+        exportImageBtn.addEventListener('click', () => {
+            if (selectedProducts.length === 0) {
+                showMessage('No hay productos seleccionados para compartir o descargar.', '#fca5a5', '#7f1d1d');
+                return;
+            }
+            shareModal.classList.remove('hidden');
+        });
+
         exportDirectOrderBtn.addEventListener('click', exportDirectOrderToExcel);
 
         window.addEventListener('beforeunload', (event) => {
@@ -1599,13 +1707,52 @@
             }
         });
 
+        // Eventos para el modal de responsables
+        addResponsablesBtn.addEventListener('click', () => {
+            responsable1Input.value = responsables[0];
+            responsable2Input.value = responsables[1];
+            responsablesModal.classList.remove('hidden');
+        });
+
+        cancelResponsablesBtn.addEventListener('click', () => {
+            responsablesModal.classList.add('hidden');
+        });
+
+        confirmResponsablesBtn.addEventListener('click', () => {
+            responsables[0] = responsable1Input.value.trim();
+            responsables[1] = responsable2Input.value.trim();
+            responsablesModal.classList.add('hidden');
+            showMessage('Responsables actualizados con éxito.', '#86efac', '#166534');
+        });
+        
+        responsablesModal.addEventListener('click', (event) => {
+            if (event.target.id === 'responsablesModal') {
+                responsablesModal.classList.add('hidden');
+            }
+        });
+
+        // Eventos para el modal de compartir
+        cancelShareBtn.addEventListener('click', () => {
+            shareModal.classList.add('hidden');
+        });
+
+        downloadImageFromShareModalBtn.addEventListener('click', async () => {
+            shareModal.classList.add('hidden');
+            await exportToImage();
+        });
+
+        shareToWhatsAppBtn.addEventListener('click', async () => {
+            shareModal.classList.add('hidden');
+            await shareToWhatsApp();
+        });
+
         // Evento para cerrar el modal de vista previa
         closePreviewBtn.addEventListener('click', () => {
             previewModal.classList.add('hidden');
         });
 
         previewModal.addEventListener('click', (event) => {
-            if (event.target.id === 'previewModal') {
+            if (event.target.id === 'responsablesModal') {
                 previewModal.classList.add('hidden');
             }
         });
@@ -1616,10 +1763,4 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
 
