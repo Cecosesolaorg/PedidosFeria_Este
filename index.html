@@ -3,9 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Pedidos De Feria Este</title>
+    <title>Pedidos de Feria del Este</title>
     <!-- Incluir Tailwind CSS desde CDN para un diseño moderno y adaptable -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuración para habilitar el modo oscuro de Tailwind -->
+    <script>
+        tailwind.config = {
+          darkMode: 'class',
+        }
+    </script>
     <!-- Incluir la librería SheetJS para exportar a Excel -->
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <!-- Incluir la librería jspdf Spara exportar a PDF -->
@@ -18,10 +24,13 @@
             font-family: 'Inter', sans-serif;
             background-color: #f0f4f8;
         }
+        .dark body {
+            background-color: #0f172a; /* slate-900 */
+        }
 
         .filter-button {
-            background-color: #e5e7eb;
-            color: #4b5563;
+            background-color: #eff6ff; /* Azul ultra claro, casi invisible */
+            color: #1e40af; /* Texto azul oscuro para contraste */
             font-weight: bold;
             border-radius: 9999px;
             padding: 8px 16px;
@@ -29,11 +38,26 @@
             transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             white-space: nowrap;
+            border: 2px solid #8b5cf6; /* Borde morado como la barra de búsqueda */
+        }
+        .dark .filter-button {
+            background-color: #374151;
+            color: #d1d5db;
+            border-color: #8b5cf6;
+        }
+        .dark .filter-button:hover {
+            background-color: #4b5563;
         }
 
         .filter-button.active {
-            background-color: #3b82f6;
-            color: #fff;
+            background-color: #bfdbfe; /* Azul más claro */
+            color: #1e40af; /* Texto azul oscuro para mejor contraste */
+            border-color: #8b5cf6; /* Borde morado */
+        }
+        .dark .filter-button.active {
+            background-color: #4f46e5;
+            color: #e5e7eb;
+            border-color: #a78bfa;
         }
 
         .product-card {
@@ -42,8 +66,12 @@
             border-radius: 12px;
             padding: 16px;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-            transition: transform 0.2s ease-in-out;
+            transition: transform 0.2s ease-in-out, background-color 0.2s;
             cursor: pointer;
+        }
+        .dark .product-card {
+            background-color: #1e293b; /* slate-800 */
+            border-color: #334155; /* slate-700 */
         }
         
         .product-card:hover {
@@ -55,10 +83,17 @@
             background-color: #dbeafe;
             border-color: #60a5fa;
         }
+        .dark .product-card.selected {
+            background-color: #312e81; /* indigo-900 */
+            border-color: #4f46e5; /* indigo-600 */
+        }
 
         .product-name {
             font-weight: 600;
             color: #1f2937;
+        }
+        .dark .product-name {
+            color: #cbd5e1; /* slate-300 */
         }
 
         .modal-overlay {
@@ -72,6 +107,14 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
         }
 
         .calculator-modal, .warning-modal, .help-modal, .preview-modal {
@@ -82,11 +125,23 @@
             max-width: 400px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
             transform: scale(0.95);
-            transition: transform 0.2s ease-out;
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
         }
-        
-        .calculator-modal.open, .warning-modal.open, .help-modal.open, .preview-modal.open {
+        .dark .calculator-modal, .dark .warning-modal, .dark .help-modal {
+             background-color: #1f293b; /* slate-800 */
+        }
+        .dark .preview-modal {
+             background-color: #334155; /* slate-700 */
+        }
+
+
+        .modal-overlay.show .calculator-modal,
+        .modal-overlay.show .warning-modal,
+        .modal-overlay.show .help-modal,
+        .modal-overlay.show .preview-modal {
             transform: scale(1);
+            opacity: 1;
         }
         
         .preview-modal {
@@ -109,6 +164,9 @@
             max-width: 800px; /* Aumenta el ancho máximo para la vista previa */
             position: relative;
         }
+        .dark .preview-content {
+            background-color: #1f293b; /* slate-800 */
+        }
 
         #previewImage {
             max-width: 100%;
@@ -125,6 +183,10 @@
             color: #1f2937;
             margin-bottom: 16px;
             overflow: hidden;
+        }
+        .dark .calculator-display {
+            background-color: #0f172a; /* slate-900 */
+            color: #e2e8f0; /* slate-200 */
         }
 
         .calculator-buttons-grid {
@@ -144,9 +206,16 @@
             transition: background-color 0.1s ease-in-out, transform 0.1s ease-in-out;
             user-select: none;
         }
+        .dark .calculator-button {
+            background-color: #475569; /* slate-600 */
+            color: #e2e8f0; /* slate-200 */
+        }
 
         .calculator-button:hover {
             background-color: #94a3b8;
+        }
+        .dark .calculator-button:hover {
+            background-color: #64748b; /* slate-500 */
         }
         
         .calculator-button:active {
@@ -208,9 +277,15 @@
             padding: 0;
             cursor: pointer;
         }
+        .dark .download-button-icon {
+            color: #9ca3af; /* gray-400 */
+        }
         
         .download-button-icon:hover {
             color: #2b6cb0;
+        }
+        .dark .download-button-icon:hover {
+            color: #60a5fa; /* blue-400 */
         }
 
         .company-list-item {
@@ -226,37 +301,81 @@
             text-align: left;
             cursor: pointer;
         }
+        .dark .company-list-item {
+            background-color: #374151;
+            color: #d1d5db;
+        }
         
         .company-list-item:hover {
             background-color: #e5e7eb;
+        }
+        .dark .company-list-item:hover {
+            background-color: #4b5563;
         }
         
         .company-list-item.active {
             background-color: #3b82f6;
             color: white;
         }
+        .dark .company-list-item.active {
+            background-color: #2563eb;
+        }
+
+        /* ESTILOS MODIFICADOS PARA LOS BOTONES ANIMADOS */
+        .menu-item {
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out; /* Duración aumentada a 0.5s */
+        }
+        
+        .menu-item.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ESTILOS PARA LA NUEVA ANIMACIÓN DE FILTROS */
+        .filter-item {
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        .filter-item.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
-<body class="bg-gray-100 p-2 md:p-4">
-    <div id="mainContainer" class="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8 relative">
+<body class="p-2 md:p-4">
+    <div id="mainContainer" class="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 md:p-8 relative">
         <!-- Título principal actualizado -->
-        <h1 class="text-3xl md:text-4xl font-bold text-center mb-6 text-gray-800">
-            Pedido de Coordinacion Viveres de Feria Del Este
+        <h1 class="text-3xl md:text-4xl font-bold text-center mb-6 text-gray-800 dark:text-gray-100">
+            Pedido de Coordinacion Viveres F.E
         </h1>
+        <!-- Botón de opciones (tres puntos) -->
+        <button id="optionsBtn" class="absolute top-4 left-4 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors z-20 p-1 rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+        <!-- El menú de opciones anterior ha sido eliminado -->
         <!-- Botón de ayuda que activa el modal -->
-        <button id="helpBtn" class="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors">
+        <button id="helpBtn" class="absolute top-4 left-14 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors p-1 rounded-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </button>
-        <!-- Botón para añadir responsables -->
-        <button id="addResponsablesBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </button>
+        <!-- Contenedor para los botones de la esquina superior derecha -->
+        <div id="topRightButtons" class="absolute top-4 right-4 flex items-center gap-4 z-10">
+            <!-- Botón para añadir responsables -->
+            <button id="addResponsablesBtn" class="text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors p-1 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                </svg>
+            </button>
+        </div>
         <!-- Botón para volver a la lista principal -->
-        <button id="mainCloseBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors hidden">
+        <button id="mainCloseBtn" class="absolute top-4 right-4 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors hidden p-1 rounded-lg border-2 border-purple-500 dark:border-purple-400">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
@@ -264,41 +383,50 @@
         
         <!-- Contenedor principal de la interfaz para móviles: botones y buscador -->
         <div class="flex flex-col gap-4 mb-6">
+            <!-- Contenedor para botones de exportación -->
+            <div id="exportButtonsContainer" class="hidden flex flex-col sm:flex-row gap-2 w-full justify-center pb-2">
+                <button id="downloadImageBtn" class="menu-item export-button bg-purple-500 hover:bg-purple-600 w-full sm:w-auto">
+                    Descargar Imagen
+                </button>
+                <button id="shareBtn" class="menu-item export-button bg-blue-500 hover:bg-blue-600 w-full sm:w-auto">
+                    Compartir
+                </button>
+                <button id="exportExcelBtn" class="menu-item export-button bg-green-500 hover:bg-green-600 w-full sm:w-auto">
+                    Exportar a Excel
+                </button>
+                <button id="exportDirectOrderBtn" class="menu-item export-button bg-indigo-500 hover:bg-indigo-600 w-full sm:w-auto">
+                    Exportar Pedido Directo
+                </button>
+            </div>
+
             <!-- Botones de filtro -->
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 w-full">
-                <button id="filterSelectedBtn" class="filter-button text-base py-2">Productos Seleccionados</button>
-                <button id="filterPanesBtn" class="filter-button text-base py-2">Pedido de Panes</button>
-                <button id="filterPolarBtn" class="filter-button text-base py-2">Pedido De La Polar</button>
-                <button id="directOrderBtn" class="filter-button text-base py-2">Pedido Directo</button>
+            <div id="filterButtonsContainer" class="grid grid-cols-1 sm:grid-cols-4 gap-2 w-full hidden">
+                <button id="filterSelectedBtn" class="filter-button filter-item text-base py-2">Productos Seleccionados</button>
+                <button id="filterPanesBtn" class="filter-button filter-item text-base py-2">Pedido de Panes</button>
+                <button id="filterPolarBtn" class="filter-button filter-item text-base py-2">Pedido De La Polar</button>
+                <button id="directOrderBtn" class="filter-button filter-item text-base py-2">Pedido Directo</button>
             </div>
             
+            <!-- Campo de búsqueda (MOVIDO A LA PARTE SUPERIOR) -->
+            <div id="searchContainer" class="w-full">
+                <input type="text" id="searchInput" placeholder="Buscar productos o empresas..." class="w-full p-2 border-2 border-purple-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200 dark:bg-slate-700 dark:border-purple-500 dark:text-gray-200 dark:placeholder-gray-400">
+            </div>
+
             <!-- Contenedor para botones de empresa -->
             <div id="companyFiltersContainer" class="flex flex-col gap-2 w-full hidden">
                 <!-- Los botones de la empresa se insertarán aquí dinámicamente -->
             </div>
-            
-            <!-- Campo de búsqueda -->
-            <div class="w-full">
-                <input type="text" id="searchInput" placeholder="Buscar productos..." class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+
+            <!-- Contenedor para resultados de búsqueda en Pedido Directo -->
+            <div id="directOrderSearchResultsContainer" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                <!-- Los resultados de la búsqueda se insertarán aquí -->
             </div>
 
-            <!-- Botones para exportar y pedido directo -->
-            <div class="flex flex-col sm:flex-row gap-2 w-full">
-                <button id="exportImageBtn" class="export-button bg-blue-500 hover:bg-blue-600 flex-1 py-2">
-                    Descargar Imagen y Compartir
-                </button>
-                <button id="exportExcelBtn" class="export-button bg-blue-500 hover:bg-blue-600 flex-1 py-2">
-                    Exportar a Excel
-                </button>
-                <button id="exportDirectOrderBtn" class="export-button bg-blue-500 hover:bg-blue-600 flex-1 py-2">
-                    Exportar Pedido Directo
-                </button>
-            </div>
         </div>
         
         <!-- Contenedor para la lista de productos seleccionados (movido a la parte superior) -->
         <div id="selectedProductsContainer" class="hidden relative mb-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
                 Productos Seleccionados
             </h2>
             <div id="selectedProductsList" class="flex flex-col gap-4">
@@ -317,10 +445,10 @@
         <div class="calculator-modal">
             <div class="flex justify-between items-start mb-4">
                 <div>
-                    <h3 class="text-2xl font-bold text-gray-900" id="modalTitle">Cantidad</h3>
-                    <p class="text-gray-600 text-sm" id="modalProductName">Producto: </p>
+                    <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100" id="modalTitle">Cantidad</h3>
+                    <p class="text-gray-600 dark:text-gray-300 text-sm" id="modalProductName">Producto: </p>
                 </div>
-                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -351,7 +479,7 @@
     <!-- Modal de Vista Previa de Imagen (oculto por defecto) -->
     <div id="previewModal" class="modal-overlay hidden">
         <div class="preview-content">
-            <button id="closePreviewBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+            <button id="closePreviewBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100 transition-colors">
                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                  </svg>
@@ -373,10 +501,10 @@
     <!-- Modal de Advertencia de Retroceso (oculto por defecto) -->
     <div id="warningModal" class="modal-overlay hidden">
         <div class="warning-modal text-center p-6">
-            <h3 class="text-2xl font-bold text-gray-900 mb-4" id="warningTitle">¡Advertencia!</h3>
-            <p class="text-gray-700 mb-6" id="warningMessage">Si retrocedes, podrías perder los cambios. ¿Estás seguro de que deseas salir?</p>
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4" id="warningTitle">¡Advertencia!</h3>
+            <p class="text-gray-700 dark:text-gray-300 mb-6" id="warningMessage">Si retrocedes, podrías perder los cambios. ¿Estás seguro de que deseas salir?</p>
             <div class="flex justify-center gap-4">
-                <button id="cancelExitBtn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-gray-300">
+                <button id="cancelExitBtn" class="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-gray-300 dark:hover:bg-gray-500">
                     Cancelar
                 </button>
                 <button id="confirmExitBtn" class="warning-button">
@@ -386,33 +514,16 @@
         </div>
     </div>
     
-    <!-- Modal para Compartir (oculto por defecto) -->
-    <div id="shareModal" class="modal-overlay hidden">
-        <div class="warning-modal text-center p-6">
-            <h3 class="text-2xl font-bold text-gray-900 mb-4">Compartir Pedido</h3>
-            <p class="text-gray-700 mb-6">Elige una opción para tu imagen de pedido.</p>
-            <div class="flex flex-col gap-4">
-                <button id="downloadImageFromShareModalBtn" class="bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-blue-600">
-                    Descargar Imagen
-                </button>
-                <button id="shareToWhatsAppBtn" class="bg-green-500 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-green-600">
-                    Compartir a WhatsApp
-                </button>
-                <button id="cancelShareBtn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-gray-300 mt-2">
-                    Cancelar
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- Modal para Compartir ha sido eliminado -->
 
     <!-- Modal de Ayuda (oculto por defecto) -->
     <div id="helpModal" class="modal-overlay hidden">
         <div class="help-modal p-6">
-            <h3 class="text-2xl font-bold text-gray-900 mb-4">Ayuda</h3>
-            <p class="text-gray-700 mb-4">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Ayuda</h3>
+            <p class="text-gray-700 dark:text-gray-300 mb-4">
                 Bienvenido al sistema de pedidos. Aquí tienes una guía rápida:
             </p>
-            <ul class="list-disc list-inside text-gray-700 space-y-2">
+            <ul class="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-2">
                 <li>Haz clic en un producto para añadir o editar la cantidad.</li>
                 <li>Usa los filtros para navegar por categorías de productos.</li>
                 <li>En "Productos Seleccionados" puedes ver y eliminar los productos de tu pedido.</li>
@@ -428,14 +539,22 @@
     <!-- Modal para Añadir Responsables (oculto por defecto) -->
     <div id="responsablesModal" class="modal-overlay hidden">
         <div class="warning-modal text-center p-6">
-            <h3 class="text-2xl font-bold text-gray-900 mb-4">Añadir Responsables</h3>
-            <p class="text-gray-700 mb-6">Introduce los nombres de los responsables del pedido.</p>
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Añadir Responsables</h3>
+            <p class="text-gray-700 dark:text-gray-300 mb-6">Introduce los nombres de los responsables del pedido.</p>
             <div class="flex flex-col gap-4 mb-4">
-                <input type="text" id="responsable1Input" placeholder="Nombre del responsable 1..." class="w-full p-2 border border-gray-300 rounded-lg">
-                <input type="text" id="responsable2Input" placeholder="Nombre del responsable 2..." class="w-full p-2 border border-gray-300 rounded-lg">
+                <input type="text" id="responsable1Input" placeholder="Nombre del responsable 1..." class="w-full p-2 border border-gray-300 dark:bg-gray-600 dark:border-gray-500 dark:text-white rounded-lg">
+                <input type="text" id="responsable2Input" placeholder="Nombre del responsable 2..." class="w-full p-2 border border-gray-300 dark:bg-gray-600 dark:border-gray-500 dark:text-white rounded-lg">
+            </div>
+            <!-- Dark Mode Toggle movido aquí -->
+            <div class="flex justify-between items-center bg-gray-100 dark:bg-slate-700 p-3 rounded-lg mb-6">
+                <span class="font-medium text-gray-800 dark:text-gray-200">Tema Oscuro</span>
+                <label for="darkModeToggle" class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="darkModeToggle" class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                </label>
             </div>
             <div class="flex justify-center gap-4">
-                <button id="cancelResponsablesBtn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-300">
+                <button id="cancelResponsablesBtn" class="bg-gray-200 dark:bg-gray-500 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-300 dark:hover:bg-gray-400">
                     Cancelar
                 </button>
                 <button id="confirmResponsablesBtn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-600">
@@ -450,7 +569,7 @@
         window.onpopstate = function() {
             window.history.pushState(null, '', location.href);
             if (selectedProducts.length > 0) {
-                warningModal.classList.remove('hidden');
+                showModal(warningModal);
             }
         };
 
@@ -866,9 +985,25 @@
         const filterPanesBtn = document.getElementById('filterPanesBtn');
         const filterPolarBtn = document.getElementById('filterPolarBtn');
         const directOrderBtn = document.getElementById('directOrderBtn');
+        const filterButtonsContainer = document.getElementById('filterButtonsContainer');
         const companyFiltersContainer = document.getElementById('companyFiltersContainer');
         const selectedProductsContainer = document.getElementById('selectedProductsContainer');
         const selectedProductsList = document.getElementById('selectedProductsList');
+        
+        // Pre-procesar productos para la búsqueda de "Pedido Directo"
+        const directOrderProducts = [];
+        Object.keys(companyProductMapping).forEach(company => {
+            const productNames = companyProductMapping[company];
+            productNames.forEach(name => {
+                const product = products.find(p => p.name === name);
+                if (product) {
+                    if (!directOrderProducts.some(p => p.id === product.id)) {
+                        directOrderProducts.push({ ...product, company: company });
+                    }
+                }
+            });
+        });
+
         let selectedProducts = [];
 
         const calculatorModal = document.getElementById('calculatorModal');
@@ -876,7 +1011,8 @@
         const calculatorDisplay = document.getElementById('calculatorDisplay');
         const closeModalBtn = document.getElementById('closeModalBtn');
         const exportExcelBtn = document.getElementById('exportExcelBtn');
-        const exportImageBtn = document.getElementById('exportImageBtn');
+        const downloadImageBtn = document.getElementById('downloadImageBtn');
+        const shareBtn = document.getElementById('shareBtn');
         const exportDirectOrderBtn = document.getElementById('exportDirectOrderBtn');
         const mainCloseBtn = document.getElementById('mainCloseBtn');
         const warningModal = document.getElementById('warningModal');
@@ -884,6 +1020,7 @@
         const confirmExitBtn = document.getElementById('confirmExitBtn');
         const warningTitle = document.getElementById('warningTitle');
         const warningMessage = document.getElementById('warningMessage');
+        const topRightButtons = document.getElementById('topRightButtons');
 
         // Modal de vista previa
         const previewModal = document.getElementById('previewModal');
@@ -905,17 +1042,34 @@
         const cancelResponsablesBtn = document.getElementById('cancelResponsablesBtn');
         const confirmResponsablesBtn = document.getElementById('confirmResponsablesBtn');
 
-        // Modal de compartir
-        const shareModal = document.getElementById('shareModal');
-        const downloadImageFromShareModalBtn = document.getElementById('downloadImageFromShareModalBtn');
-        const shareToWhatsAppBtn = document.getElementById('shareToWhatsAppBtn');
-        const cancelShareBtn = document.getElementById('cancelShareBtn');
+        // El modal de compartir y sus variables han sido eliminados
+        
+        // Botón de opciones y contenedor de botones de exportación
+        const optionsBtn = document.getElementById('optionsBtn');
+        const exportButtonsContainer = document.getElementById('exportButtonsContainer');
 
         let currentQuantity = '';
         let currentProduct = null;
         let searchTimeout;
         let productIdToDelete = null;
         let responsables = ['', ''];
+        let menuTimeoutId = null;
+
+        function showModal(modal) {
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+        }
+
+        function hideModal(modal) {
+            if (!modal) return;
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300); // Duración de la transición
+        }
 
         let filters = {
             selected: false,
@@ -956,29 +1110,30 @@
             productList.innerHTML += listHtml;
         }
         
-        function renderSelectedProducts() {
+        function renderSelectedProducts(productsToRender) {
+            const productsToShow = productsToRender !== undefined ? productsToRender : selectedProducts;
+
             selectedProductsList.innerHTML = '';
             
-            selectedProducts.sort((a, b) => {
+            const sortedProducts = [...productsToShow].sort((a, b) => {
                 const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
                 const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
                 return nameA.localeCompare(nameB);
             });
             
-            // Ocultar el botón de ayuda si hay productos seleccionados
             if (selectedProducts.length > 0) {
                 helpBtn.classList.add('hidden');
             } else {
                 helpBtn.classList.remove('hidden');
             }
 
-            if (selectedProducts.length > 0) {
-                const selectedHtml = selectedProducts.map(product => {
+            if (sortedProducts.length > 0) {
+                const selectedHtml = sortedProducts.map(product => {
                     return `
-                        <div class="bg-blue-50 p-4 rounded-lg shadow-md flex justify-between items-center transition-all duration-200 border-2 border-blue-400">
-                            <span class="font-medium text-blue-800">${product.name}</span>
+                        <div class="bg-blue-50 dark:bg-slate-700 p-4 rounded-lg shadow-md flex justify-between items-center transition-all duration-200 border-2 border-blue-400 dark:border-blue-700">
+                            <span class="font-medium text-blue-800 dark:text-blue-200">${product.name}</span>
                             <div class="flex items-center gap-4">
-                                <span class="font-bold text-blue-900">${product.quantity} ${product.unit}</span>
+                                <span class="font-bold text-blue-900 dark:text-blue-100">${product.quantity} ${product.unit}</span>
                                 <button class="delete-button" data-id="${product.id}">Eliminar</button>
                             </div>
                         </div>
@@ -993,16 +1148,35 @@
                         warningMessage.textContent = '¿Estás seguro de que deseas eliminar este producto?';
                         confirmExitBtn.textContent = 'Sí, eliminar';
                         cancelExitBtn.textContent = 'Cancelar';
-                        warningModal.classList.remove('hidden');
+                        showModal(warningModal);
                     });
                 });
             } else {
-                selectedProductsList.innerHTML = '<p class="text-center text-gray-500 text-lg">Aún no has agregado productos.</p>';
+                if (selectedProducts.length > 0 && productsToRender !== undefined) {
+                     selectedProductsList.innerHTML = '<p class="text-center text-gray-500 text-lg">No se encontraron productos seleccionados que coincidan con la búsqueda.</p>';
+                } else {
+                    selectedProductsList.innerHTML = '<p class="text-center text-gray-500 text-lg">Aún no has agregado productos.</p>';
+                }
             }
         }
         
         function updateUI() {
             const isAnyFilterActive = filters.selected || filters.panes || filters.polar || filters.directOrder;
+            const searchContainer = document.getElementById('searchContainer');
+            const directOrderSearchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
+            
+            // Oculta los otros botones de filtro cuando uno está activo
+            filterSelectedBtn.classList.toggle('hidden', isAnyFilterActive && !filters.selected);
+            filterPanesBtn.classList.toggle('hidden', isAnyFilterActive && !filters.panes);
+            filterPolarBtn.classList.toggle('hidden', isAnyFilterActive && !filters.polar);
+            directOrderBtn.classList.toggle('hidden', isAnyFilterActive && !filters.directOrder);
+
+            // Ajusta la cuadrícula para que el botón activo ocupe todo el espacio
+            if (isAnyFilterActive) {
+                filterButtonsContainer.classList.remove('sm:grid-cols-4');
+            } else {
+                filterButtonsContainer.classList.add('sm:grid-cols-4');
+            }
             
             if (isAnyFilterActive || selectedProducts.length > 0) {
                 helpBtn.classList.add('hidden');
@@ -1012,16 +1186,17 @@
 
             if (isAnyFilterActive) {
                 mainCloseBtn.classList.remove('hidden');
-                addResponsablesBtn.classList.add('hidden'); // Ocultar el botón de responsables
+                topRightButtons.classList.add('hidden');
             } else {
                 mainCloseBtn.classList.add('hidden');
-                addResponsablesBtn.classList.remove('hidden'); // Mostrar el botón de responsables
+                topRightButtons.classList.remove('hidden');
             }
 
             if (filters.selected) {
                 productList.classList.add('hidden');
                 selectedProductsContainer.classList.remove('hidden');
                 companyFiltersContainer.classList.add('hidden');
+                directOrderSearchResultsContainer.classList.add('hidden');
                 renderSelectedProducts();
             } else {
                 productList.classList.remove('hidden');
@@ -1034,15 +1209,23 @@
             directOrderBtn.classList.toggle('active', filters.directOrder);
 
             if(filters.directOrder) {
-                companyFiltersContainer.classList.remove('hidden');
                 productList.classList.add('hidden');
-            } else if (!filters.selected) { // Ensure company filters are hidden if not in direct order mode
+                // Si hay un término de búsqueda, muestra los resultados, si no, muestra las empresas
+                if (searchInput.value.trim()) {
+                    directOrderSearchResultsContainer.classList.remove('hidden');
+                    companyFiltersContainer.classList.add('hidden');
+                } else {
+                    directOrderSearchResultsContainer.classList.add('hidden');
+                    companyFiltersContainer.classList.remove('hidden');
+                }
+            } else {
                 companyFiltersContainer.classList.add('hidden');
+                directOrderSearchResultsContainer.classList.add('hidden');
             }
         }
 
         function filterAndRenderProducts() {
-            // CORRECCIÓN: Si el filtro de 'seleccionados' está activo, no hacemos NADA MÁS.
+            // Si el filtro de 'seleccionados' está activo, no hacemos NADA MÁS.
             // La función updateUI() ya se encarga de mostrar/ocultar los contenedores correctos.
             if (filters.selected) {
                 updateUI();
@@ -1050,20 +1233,22 @@
             }
             
             const searchTerm = searchInput.value.toLowerCase();
-            let filteredProducts;
+            let baseProducts;
 
+            // Primero, determinamos la lista base de productos según el filtro activo
             if (filters.panes) {
-                filteredProducts = products.filter(product => product.name.includes('•'));
+                baseProducts = products.filter(product => product.name.includes('•'));
             } else if (filters.polar) {
-                filteredProducts = products.filter(product => product.name.endsWith('.'));
-            } else if (searchTerm) {
-                filteredProducts = products.filter(product => 
-                    product.name.toLowerCase().includes(searchTerm)
-                );
+                baseProducts = products.filter(product => product.name.endsWith('.'));
             } else {
-                // Si no hay búsqueda ni filtros (y no es 'seleccionados'), mostrar todos.
-                filteredProducts = [...products];
+                // Si no hay un filtro de categoría, la base son todos los productos
+                baseProducts = [...products];
             }
+            
+            // Luego, aplicamos el término de búsqueda a la lista base
+            const filteredProducts = searchTerm
+                ? baseProducts.filter(product => product.name.toLowerCase().includes(searchTerm))
+                : baseProducts;
             
             productList.classList.remove('flex', 'flex-col', 'gap-4');
             productList.classList.add('grid', 'sm:grid-cols-2', 'lg:grid-cols-3');
@@ -1109,6 +1294,52 @@
                 productsContainer.innerHTML = '<p class="col-span-full text-center text-gray-500 text-lg">No hay productos para esta empresa.</p>';
             }
         }
+        
+        function renderDirectOrderSearchResults() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const companyContainer = document.getElementById('companyFiltersContainer');
+            const searchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
+
+            if (!searchTerm) {
+                companyContainer.classList.remove('hidden');
+                searchResultsContainer.classList.add('hidden');
+                searchResultsContainer.innerHTML = '';
+                companyContainer.querySelectorAll('.company-section').forEach(section => {
+                    section.classList.remove('hidden');
+                });
+                return;
+            }
+
+            companyContainer.classList.add('hidden');
+            searchResultsContainer.classList.remove('hidden');
+            searchResultsContainer.innerHTML = '';
+
+            const filteredResults = directOrderProducts.filter(item =>
+                item.name.toLowerCase().includes(searchTerm) || item.company.toLowerCase().includes(searchTerm)
+            );
+
+            filteredResults.sort((a, b) => {
+                const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                return nameA.localeCompare(nameB);
+            });
+
+            if (filteredResults.length > 0) {
+                const resultsHtml = filteredResults.map(item => {
+                    const isSelected = selectedProducts.some(p => p.id === item.id);
+                    const cardClass = isSelected ? 'product-card selected' : 'product-card';
+                    return `
+                        <div class="${cardClass} flex flex-col items-start w-full bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.name}">
+                            <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.name}</h2>
+                            <p class="text-xs text-purple-700 font-semibold mt-1">${item.company}</p>
+                        </div>
+                    `;
+                }).join('');
+                searchResultsContainer.innerHTML = resultsHtml;
+            } else {
+                searchResultsContainer.innerHTML = '<p class="col-span-full text-center text-gray-500 text-lg">No se encontraron productos o empresas.</p>';
+            }
+        }
 
         function handleCalculatorClick(event) {
             const value = event.target.dataset.value;
@@ -1133,13 +1364,14 @@
                         }
                     }
                     
-                    console.log(`Producto seleccionado: ${currentProduct.name}, Cantidad: ${quantity}`);
-                    
-                    calculatorModal.classList.add('hidden');
+                    hideModal(calculatorModal);
                     currentQuantity = '';
                     currentProduct = null;
                     filterAndRenderProducts();
-                    refreshCompanyProductViews(); // Actualizar la vista de la empresa si está abierta
+                    refreshCompanyProductViews();
+                    if (filters.directOrder && searchInput.value) {
+                        renderDirectOrderSearchResults();
+                    }
                 }
             } else {
                 if (currentQuantity.length < 9) {
@@ -1226,9 +1458,9 @@
             
             let fileName = `Pedido de Feria del Este ${day}-${month}-${year}.xlsx`;
             if (filters.polar) {
-                fileName = 'Pedido De La Polar Feria del Este 27-09-2025.xlsx';
+                fileName = `Pedido De La Polar Feria del Este ${day}-${month}-${year}.xlsx`;
             } else if (filters.panes) {
-                fileName = 'Pedido De La Cava Feria Del Este 27-09-2025.xlsx';
+                fileName = `Pedido De La Cava Feria Del Este ${day}-${month}-${year}.xlsx`;
             }
 
             XLSX.writeFile(wb, fileName);
@@ -1418,7 +1650,7 @@
             
             // Mostrar el modal de vista previa en lugar de descargar directamente
             previewImage.src = image;
-            previewModal.classList.remove('hidden');
+            showModal(previewModal);
 
             const downloadImage = () => {
                 const link = document.createElement('a');
@@ -1432,7 +1664,7 @@
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                previewModal.classList.add('hidden');
+                hideModal(previewModal);
                 showMessage('Imagen descargada con éxito.', '#86efac', '#166534');
             };
 
@@ -1484,19 +1716,19 @@
 
                 updateDisplay();
                 
-                calculatorModal.classList.remove('hidden');
+                showModal(calculatorModal);
             }
         });
 
         closeModalBtn.addEventListener('click', () => {
-            calculatorModal.classList.add('hidden');
+            hideModal(calculatorModal);
             currentQuantity = '';
             currentProduct = null;
         });
         
         calculatorModal.addEventListener('click', (event) => {
             if (event.target.id === 'calculatorModal') {
-                calculatorModal.classList.add('hidden');
+                hideModal(calculatorModal);
                 currentQuantity = '';
                 currentProduct = null;
             }
@@ -1505,15 +1737,17 @@
         searchInput.addEventListener('input', () => {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
-                filters.panes = false;
-                filters.polar = false;
-                filters.selected = false;
-                filters.directOrder = false;
-                filterPanesBtn.classList.remove('active');
-                filterPolarBtn.classList.remove('active');
-                filterSelectedBtn.classList.remove('active');
-                directOrderBtn.classList.remove('active');
-                filterAndRenderProducts();
+                if (filters.directOrder) {
+                    renderDirectOrderSearchResults();
+                } else if (filters.selected) {
+                    const searchTerm = searchInput.value.toLowerCase();
+                    const filteredSelected = selectedProducts.filter(product => 
+                        product.name.toLowerCase().includes(searchTerm)
+                    );
+                    renderSelectedProducts(filteredSelected);
+                } else {
+                    filterAndRenderProducts();
+                }
             }, 300);
         });
         
@@ -1530,10 +1764,14 @@
         
         function backToList() {
             clearTimeout(searchTimeout);
+            searchInput.value = '';
             filters.selected = false;
             filters.panes = false;
             filters.polar = false;
             filters.directOrder = false;
+            const searchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
+            searchResultsContainer.classList.add('hidden');
+            searchResultsContainer.innerHTML = '';
             filterAndRenderProducts();
         }
 
@@ -1565,16 +1803,16 @@
             clearTimeout(searchTimeout);
             searchInput.value = '';
             
-            // Reset other filters
             filters.selected = false;
             filters.panes = false;
             filters.polar = false;
-
-            // Toggle direct order mode
             filters.directOrder = !filters.directOrder;
 
+            const searchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
+            searchResultsContainer.classList.add('hidden');
+            searchResultsContainer.innerHTML = '';
+
             if (!filters.directOrder) {
-                // If turning off, hide all company product lists
                 document.querySelectorAll('.products-for-company').forEach(container => container.classList.add('hidden'));
                 document.querySelectorAll('.company-list-item.active').forEach(btn => btn.classList.remove('active'));
             }
@@ -1654,13 +1892,9 @@
         
         exportExcelBtn.addEventListener('click', exportToExcel);
         
-        exportImageBtn.addEventListener('click', () => {
-            if (selectedProducts.length === 0) {
-                showMessage('No hay productos seleccionados para compartir o descargar.', '#fca5a5', '#7f1d1d');
-                return;
-            }
-            shareModal.classList.remove('hidden');
-        });
+        downloadImageBtn.addEventListener('click', exportToImage);
+
+        shareBtn.addEventListener('click', shareToWhatsApp);
 
         exportDirectOrderBtn.addEventListener('click', exportDirectOrderToExcel);
 
@@ -1673,7 +1907,7 @@
         });
 
         cancelExitBtn.addEventListener('click', () => {
-            warningModal.classList.add('hidden');
+            hideModal(warningModal);
         });
 
         confirmExitBtn.addEventListener('click', () => {
@@ -1685,7 +1919,7 @@
                 renderSelectedProducts();
                 filterAndRenderProducts(); // This will re-render the main list view correctly
                 refreshCompanyProductViews(); // Actualizar la vista de la empresa si está abierta
-                warningModal.classList.add('hidden');
+                hideModal(warningModal);
             } else {
                 window.history.back();
             }
@@ -1694,16 +1928,16 @@
 
         // Eventos para el nuevo botón y modal de ayuda
         helpBtn.addEventListener('click', () => {
-            helpModal.classList.remove('hidden');
+            showModal(helpModal);
         });
 
         closeHelpModalBtn.addEventListener('click', () => {
-            helpModal.classList.add('hidden');
+            hideModal(helpModal);
         });
 
         helpModal.addEventListener('click', (event) => {
             if (event.target.id === 'helpModal') {
-                helpModal.classList.add('hidden');
+                hideModal(helpModal);
             }
         });
 
@@ -1711,51 +1945,144 @@
         addResponsablesBtn.addEventListener('click', () => {
             responsable1Input.value = responsables[0];
             responsable2Input.value = responsables[1];
-            responsablesModal.classList.remove('hidden');
+            showModal(responsablesModal);
         });
 
         cancelResponsablesBtn.addEventListener('click', () => {
-            responsablesModal.classList.add('hidden');
+            hideModal(responsablesModal);
         });
 
         confirmResponsablesBtn.addEventListener('click', () => {
             responsables[0] = responsable1Input.value.trim();
             responsables[1] = responsable2Input.value.trim();
-            responsablesModal.classList.add('hidden');
+            hideModal(responsablesModal);
             showMessage('Responsables actualizados con éxito.', '#86efac', '#166534');
+
+            // --- CÓDIGO MODIFICADO PARA LA ANIMACIÓN DE FILTROS ---
+            if (responsables[0] || responsables[1]) {
+                const filterItems = [
+                    document.getElementById('directOrderBtn'),
+                    document.getElementById('filterPolarBtn'),
+                    document.getElementById('filterPanesBtn'),
+                    document.getElementById('filterSelectedBtn')
+                ];
+                const animationDelay = 150;
+
+                // Asegurarse de que los items están reseteados antes de la animación
+                filterItems.forEach(item => item.classList.remove('show'));
+
+                // Mostrar el contenedor
+                filterButtonsContainer.classList.remove('hidden');
+                
+                // Animar cada item para que aparezca
+                filterItems.forEach((item, index) => {
+                    void item.offsetWidth; // Forzar reflow para reiniciar la animación
+                    setTimeout(() => {
+                        item.classList.add('show');
+                    }, (index + 1) * animationDelay);
+                });
+            } else {
+                // Si no hay responsables, ocultar el contenedor y resetear la animación
+                filterButtonsContainer.classList.add('hidden');
+                document.querySelectorAll('.filter-item').forEach(item => item.classList.remove('show'));
+            }
         });
         
         responsablesModal.addEventListener('click', (event) => {
             if (event.target.id === 'responsablesModal') {
-                responsablesModal.classList.add('hidden');
+                hideModal(responsablesModal);
             }
         });
 
-        // Eventos para el modal de compartir
-        cancelShareBtn.addEventListener('click', () => {
-            shareModal.classList.add('hidden');
-        });
-
-        downloadImageFromShareModalBtn.addEventListener('click', async () => {
-            shareModal.classList.add('hidden');
-            await exportToImage();
-        });
-
-        shareToWhatsAppBtn.addEventListener('click', async () => {
-            shareModal.classList.add('hidden');
-            await shareToWhatsApp();
-        });
+        // Los eventos del modal de compartir han sido eliminados
 
         // Evento para cerrar el modal de vista previa
         closePreviewBtn.addEventListener('click', () => {
-            previewModal.classList.add('hidden');
+            hideModal(previewModal);
         });
 
         previewModal.addEventListener('click', (event) => {
-            if (event.target.id === 'responsablesModal') {
-                previewModal.classList.add('hidden');
+            if (event.target.id === 'previewModal') {
+                hideModal(previewModal);
             }
         });
+
+        function hideOptionsMenu() {
+            const menuItems = exportButtonsContainer.querySelectorAll('.menu-item');
+            if (exportButtonsContainer.classList.contains('hidden')) return;
+
+            const animationDelay = 150;
+            const totalItems = menuItems.length;
+
+            [...menuItems].reverse().forEach((item, index) => {
+                setTimeout(() => {
+                    item.classList.remove('show');
+                }, index * animationDelay);
+            });
+
+            const cssTransitionDuration = 500;
+            const totalDuration = ((totalItems - 1) * animationDelay) + cssTransitionDuration;
+            setTimeout(() => {
+                exportButtonsContainer.classList.add('hidden');
+            }, totalDuration);
+        }
+
+        // --- CÓDIGO MODIFICADO PARA EL BOTÓN DE OPCIONES ---
+        optionsBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const menuItems = exportButtonsContainer.querySelectorAll('.menu-item');
+            const isHidden = exportButtonsContainer.classList.contains('hidden');
+            const animationDelay = 150;
+            
+            if (menuTimeoutId) {
+                clearTimeout(menuTimeoutId);
+            }
+
+            if (isHidden) { // Si está oculto, lo mostramos
+                exportButtonsContainer.classList.remove('hidden');
+                menuItems.forEach((item, index) => {
+                    item.classList.remove('show'); // Reiniciar para la animación
+                    void item.offsetWidth;
+                    setTimeout(() => {
+                        item.classList.add('show');
+                    }, (index + 1) * animationDelay);
+                });
+                menuTimeoutId = setTimeout(hideOptionsMenu, 10000); // Ocultar después de 10 segundos
+            } else { // Si está visible, lo ocultamos
+                hideOptionsMenu();
+            }
+        });
+
+        // El evento para cerrar los botones al hacer clic fuera ha sido eliminado
+
+        // --- Dark Mode Logic ---
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const htmlEl = document.documentElement;
+
+        const setTheme = (theme) => {
+            if (theme === 'dark') {
+                htmlEl.classList.add('dark');
+                darkModeToggle.checked = true;
+            } else {
+                htmlEl.classList.remove('dark');
+                darkModeToggle.checked = false;
+            }
+        };
+
+        darkModeToggle.addEventListener('change', () => {
+            const newTheme = darkModeToggle.checked ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            setTheme(newTheme);
+        });
+
+        // Initialize theme on load
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            setTheme(savedTheme);
+        } else {
+            // Default to light, or you can check system preference
+            setTheme('light'); 
+        }
 
         // Inicializar la interfaz y los productos
         renderCompanyList();
