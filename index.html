@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Buscador de Productos con Vista Previa</title>
+    <!-- Incluir Tailwind CSS desde CDN para un diseño moderno y adaptable -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuración para habilitar el modo oscuro de Tailwind -->
+    <script>
+        tailwind.config = {
+          darkMode: 'class',
+        }
+    </script>
+    <!-- Incluir la librería SheetJS para exportar a Excel -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- Incluir la librería jspdf Spara exportar a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.js"></script>
+    <!-- Incluir la librería html2canvas para convertir HTML a imagen -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Fuente 'Inter' desde Google Fonts y estilos CSS personalizados -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .dark body {
+            background-color: #0f172a; /* slate-900 */
+        }
+
+        .filter-button {
+            background-color: #eff6ff; /* Azul ultra claro, casi invisible */
+            color: #1e40af; /* Texto azul oscuro para contraste */
+            font-weight: bold;
+            border-radius: 9999px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            white-space: nowrap;
+            border: 2px solid #8b5cf6; /* Borde morado como la barra de búsqueda */
+        }
+        .dark .filter-button {
+            background-color: #374151;
+            color: #d1d5db;
+            border-color: #8b5cf6;
+        }
+        .dark .filter-button:hover {
+            background-color: #4b5563;
+        }
+
+        .filter-button.active {
+            background-color: #bfdbfe; /* Azul más claro */
+            color: #1e40af; /* Texto azul oscuro para mejor contraste */
+            border-color: #8b5cf6; /* Borde morado */
+        }
+        .dark .filter-button.active {
+            background-color: #4f46e5;
+            color: #e5e7eb;
+            border-color: #a78bfa;
+        }
+
+        .product-card {
+            background-color: #f9fafb;
+            border: 1px solid #bfdbfe; /* Cambiado a un borde azul claro */
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease-in-out, background-color 0.2s;
+            cursor: pointer;
+        }
+        .dark .product-card {
+            background-color: #1e293b; /* slate-800 */
+            border-color: #334155; /* slate-700 */
+        }
+        
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .product-card.selected {
+            background-color: #dbeafe;
+            border-color: #60a5fa;
+        }
+        .dark .product-card.selected {
+            background-color: #312e81; /* indigo-900 */
+            border-color: #4f46e5; /* indigo-600 */
+        }
+
+        .product-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .dark .product-name {
+            color: #cbd5e1; /* slate-300 */
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .calculator-modal, .warning-modal, .help-modal, .preview-modal {
+            background-color: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            transform: scale(0.95);
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .dark .calculator-modal, .dark .warning-modal, .dark .help-modal {
+             background-color: #1f293b; /* slate-800 */
+        }
+        .dark .preview-modal {
+             background-color: #334155; /* slate-700 */
+        }
+
+
+        .modal-overlay.show .calculator-modal,
+        .modal-overlay.show .warning-modal,
+        .modal-overlay.show .help-modal,
+        .modal-overlay.show .preview-modal {
+            transform: scale(1);
+            opacity: 1;
+        }
+        
+        .preview-modal {
+            max-width: 95%; /* Aumenta el ancho máximo */
+            width: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            max-height: 95%; /* Aumenta la altura máxima */
+        }
+
+        .preview-content {
+            background-color: #fff;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            overflow: auto;
+            max-height: 90vh;
+            width: 100%;
+            max-width: 800px; /* Aumenta el ancho máximo para la vista previa */
+            position: relative;
+        }
+        .dark .preview-content {
+            background-color: #1f293b; /* slate-800 */
+        }
+
+        #previewImage {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .calculator-display {
+            background-color: #e2e8f0;
+            padding: 16px;
+            text-align: right;
+            border-radius: 8px;
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .dark .calculator-display {
+            background-color: #0f172a; /* slate-900 */
+            color: #e2e8f0; /* slate-200 */
+        }
+
+        .calculator-buttons-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        .calculator-button {
+            background-color: #cbd5e1;
+            padding: 20px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #475569;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.1s ease-in-out, transform 0.1s ease-in-out;
+            user-select: none;
+        }
+        .dark .calculator-button {
+            background-color: #475569; /* slate-600 */
+            color: #e2e8f0; /* slate-200 */
+        }
+
+        .calculator-button:hover {
+            background-color: #94a3b8;
+        }
+        .dark .calculator-button:hover {
+            background-color: #64748b; /* slate-500 */
+        }
+        
+        .calculator-button:active {
+            transform: scale(0.95);
+        }
+        
+        .button-confirm {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .button-confirm:hover {
+            background-color: #2563eb;
+        }
+
+        .warning-button {
+            background-color: #ef4444;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        .warning-button:hover {
+            background-color: #dc2626;
+        }
+        
+        .delete-button {
+            background-color: #f87171;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .delete-button:hover {
+            background-color: #ef4444;
+        }
+        
+        .export-button {
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s ease-in-out;
+            color: white;
+        }
+
+        /* Estilos para el nuevo botón de descarga */
+        .download-button-icon {
+            background: none;
+            border: none;
+            color: #4a5568;
+            transition: color 0.2s ease-in-out;
+            padding: 0;
+            cursor: pointer;
+        }
+        .dark .download-button-icon {
+            color: #9ca3af; /* gray-400 */
+        }
+        
+        .download-button-icon:hover {
+            color: #2b6cb0;
+        }
+        .dark .download-button-icon:hover {
+            color: #60a5fa; /* blue-400 */
+        }
+
+        .company-list-item {
+            font-size: 1rem; /* Tamaño de fuente ajustado */
+            font-weight: 600; /* Negrita */
+            color: #1f2937; /* Color de texto oscuro */
+            padding: 0.75rem 1rem; /* Padding ajustado */
+            border-radius: 0.5rem; /* Bordes redondeados */
+            background-color: #f3f4f6; /* Un color de fondo ligeramente diferente */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Sombra sutil */
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+        .dark .company-list-item {
+            background-color: #374151;
+            color: #d1d5db;
+        }
+        
+        .company-list-item:hover {
+            background-color: #e5e7eb;
+        }
+        .dark .company-list-item:hover {
+            background-color: #4b5563;
+        }
+        
+        .company-list-item.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .dark .company-list-item.active {
+            background-color: #2563eb;
+        }
+
+        /* ESTILOS MODIFICADOS PARA LOS BOTONES ANIMADOS */
+        .menu-item {
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out; /* Duración aumentada a 0.5s */
+        }
+        
+        .menu-item.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ESTILOS PARA LA NUEVA ANIMACIÓN DE FILTROS */
+        .filter-item {
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        .filter-item.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="p-2 md:p-4">
+    <div id="mainContainer" class="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 md:p-8 relative">
+        <!-- Título principal actualizado -->
+        <h1 class="text-3xl md:text-4xl font-bold text-center mb-6 text-gray-800 dark:text-gray-100">
+            PEDIDO DE<br>FERIA ESTE
+        </h1>
+        <!-- Botón de opciones (tres puntos) -->
+        <button id="optionsBtn" class="absolute top-4 left-4 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors z-20 p-1 rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+        <!-- El menú de opciones anterior ha sido eliminado -->
+        <!-- Botón de ayuda que activa el modal -->
+        <button id="helpBtn" class="absolute top-4 left-14 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors p-1 rounded-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </button>
+        <!-- Contenedor para los botones de la esquina superior derecha -->
+        <div id="topRightButtons" class="absolute top-4 right-4 flex items-center gap-4 z-10">
+            <!-- Botón para añadir responsables -->
+            <button id="addResponsablesBtn" class="text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors p-1 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                </svg>
+            </button>
+        </div>
+        <!-- Botón para volver a la lista principal -->
+        <button id="mainCloseBtn" class="absolute top-4 right-4 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors hidden p-1 rounded-lg border-2 border-purple-500 dark:border-purple-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+        
+        <!-- Contenedor principal de la interfaz para móviles: botones y buscador -->
+        <div class="flex flex-col gap-4 mb-6">
+            <!-- Contenedor para botones de exportación -->
+            <div id="exportButtonsContainer" class="hidden flex flex-col sm:flex-row gap-2 w-full justify-center pb-2">
+                <button id="downloadImageBtn" class="menu-item export-button bg-purple-500 hover:bg-purple-600 w-full sm:w-auto">
+                    Descargar Imagen
+                </button>
+                <button id="shareBtn" class="menu-item export-button bg-blue-500 hover:bg-blue-600 w-full sm:w-auto">
+                    Compartir
+                </button>
+                <button id="exportExcelBtn" class="menu-item export-button bg-green-500 hover:bg-green-600 w-full sm:w-auto">
+                    Exportar a Excel
+                </button>
+                <button id="exportDirectOrderBtn" class="menu-item export-button bg-indigo-500 hover:bg-indigo-600 w-full sm:w-auto">
+                    Exportar Pedido Directo
+                </button>
+            </div>
+
+            <!-- Botones de filtro -->
+            <div id="filterButtonsContainer" class="grid grid-cols-1 sm:grid-cols-4 gap-2 w-full hidden">
+                <button id="filterSelectedBtn" class="filter-button filter-item text-base py-2">Productos Seleccionados</button>
+                <button id="filterPanesBtn" class="filter-button filter-item text-base py-2">Pedido de Panes</button>
+                <button id="filterPolarBtn" class="filter-button filter-item text-base py-2">Pedido De La Polar</button>
+                <button id="directOrderBtn" class="filter-button filter-item text-base py-2">Pedido Directo</button>
+            </div>
+            
+            <!-- Campo de búsqueda (MOVIDO A LA PARTE SUPERIOR) -->
+            <div id="searchContainer" class="w-full">
+                <input type="text" id="searchInput" placeholder="Buscar productos o empresas..." class="w-full p-2 border-2 border-purple-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200 dark:bg-slate-700 dark:border-purple-500 dark:text-gray-200 dark:placeholder-gray-400">
+            </div>
+
+            <!-- Contenedor para botones de empresa -->
+            <div id="companyFiltersContainer" class="flex flex-col gap-2 w-full hidden">
+                <!-- Los botones de la empresa se insertarán aquí dinámicamente -->
+            </div>
+
+            <!-- Contenedor para resultados de búsqueda en Pedido Directo -->
+            <div id="directOrderSearchResultsContainer" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                <!-- Los resultados de la búsqueda se insertarán aquí -->
+            </div>
+
+        </div>
+        
+        <!-- Contenedor para la lista de productos seleccionados (movido a la parte superior) -->
+        <div id="selectedProductsContainer" class="hidden relative mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
+                Productos Seleccionados
+            </h2>
+            <div id="selectedProductsList" class="flex flex-col gap-4">
+                <!-- Los productos seleccionados se renderizarán aquí -->
+            </div>
+        </div>
+
+        <!-- Contenedor de la lista de productos -->
+        <div id="productList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Los productos se renderizarán aquí según la búsqueda -->
+        </div>
+    </div>
+    
+    <!-- Modal de la calculadora (oculto por defecto) -->
+    <div id="calculatorModal" class="modal-overlay hidden">
+        <div class="calculator-modal">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100" id="modalTitle">Cantidad</h3>
+                    <p class="text-gray-600 dark:text-gray-300 text-sm" id="modalProductName">Producto: </p>
+                </div>
+                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="calculator-display" id="calculatorDisplay">0</div>
+            <div class="calculator-buttons-grid">
+                <button class="calculator-button" data-value="7">7</button>
+                <button class="calculator-button" data-value="8">8</button>
+                <button class="calculator-button" data-value="9">9</button>
+                <button class="calculator-button" data-value="4">4</button>
+                <button class="calculator-button" data-value="5">5</button>
+                <button class="calculator-button" data-value="6">6</button>
+                <button class="calculator-button" data-value="1">1</button>
+                <button class="calculator-button" data-value="2">2</button>
+                <button class="calculator-button" data-value="3">3</button>
+                <button class="calculator-button col-span-2" data-value="0">0</button>
+                <button class="calculator-button" data-value="backspace">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l-7-7 7-7m5 14l-7-7 7-7" />
+                    </svg>
+                </button>
+                <button class="calculator-button col-span-3 button-confirm" data-value="confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Vista Previa de Imagen (oculto por defecto) -->
+    <div id="previewModal" class="modal-overlay hidden">
+        <div class="preview-content">
+            <button id="closePreviewBtn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100 transition-colors">
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                 </svg>
+            </button>
+            <button id="downloadPreviewIconBtn" class="download-button-icon absolute top-4 right-16">
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            </button>
+            <div id="imagePreviewContainer" class="flex flex-col items-center">
+                <img id="previewImage" src="" alt="Vista Previa de Pedido" class="max-w-full h-auto rounded-lg">
+                <button id="downloadPreviewBtn" class="mt-6 px-6 py-2 bg-green-500 text-white font-bold rounded-lg shadow-md hover:bg-green-600 transition-colors">
+                    Descargar Imagen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Advertencia de Retroceso (oculto por defecto) -->
+    <div id="warningModal" class="modal-overlay hidden">
+        <div class="warning-modal text-center p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4" id="warningTitle">¡Advertencia!</h3>
+            <p class="text-gray-700 dark:text-gray-300 mb-6" id="warningMessage">Si retrocedes, podrías perder los cambios. ¿Estás seguro de que deseas salir?</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancelExitBtn" class="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200 hover:bg-gray-300 dark:hover:bg-gray-500">
+                    Cancelar
+                </button>
+                <button id="confirmExitBtn" class="warning-button">
+                    Salir
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para Compartir ha sido eliminado -->
+
+    <!-- Modal de Ayuda (oculto por defecto) -->
+    <div id="helpModal" class="modal-overlay hidden">
+        <div class="help-modal p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Ayuda</h3>
+            <p class="text-gray-700 dark:text-gray-300 mb-4">
+                Bienvenido al sistema de pedidos. Aquí tienes una guía rápida:
+            </p>
+            <ul class="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-2">
+                <li>Haz clic en un producto para añadir o editar la cantidad.</li>
+                <li>Usa los filtros para navegar por categorías de productos.</li>
+                <li>En "Productos Seleccionados" puedes ver y eliminar los productos de tu pedido.</li>
+                <li>Usa los botones de exportación para generar un archivo Excel o una imagen de tu pedido.</li>
+                 <li>Presiona el botón de 'añadir' para incluir los responsables del pedido.</li>
+            </ul>
+            <button id="closeHelpModalBtn" class="mt-6 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg w-full hover:bg-blue-600">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal para Añadir Responsables (oculto por defecto) -->
+    <div id="responsablesModal" class="modal-overlay hidden">
+        <div class="warning-modal text-center p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Añadir Responsables</h3>
+            <p class="text-gray-700 dark:text-gray-300 mb-6">Introduce los nombres de los responsables del pedido.</p>
+            <div class="flex flex-col gap-4 mb-4">
+                <input type="text" id="responsable1Input" placeholder="Nombre del responsable 1..." class="w-full p-2 border border-gray-300 dark:bg-gray-600 dark:border-gray-500 dark:text-white rounded-lg">
+                <input type="text" id="responsable2Input" placeholder="Nombre del responsable 2..." class="w-full p-2 border border-gray-300 dark:bg-gray-600 dark:border-gray-500 dark:text-white rounded-lg">
+            </div>
+            <!-- Dark Mode Toggle movido aquí -->
+            <div class="flex justify-between items-center bg-gray-100 dark:bg-slate-700 p-3 rounded-lg mb-6">
+                <span class="font-medium text-gray-800 dark:text-gray-200">Tema Oscuro</span>
+                <label for="darkModeToggle" class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="darkModeToggle" class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                </label>
+            </div>
+            <div class="flex justify-center gap-4">
+                <button id="cancelResponsablesBtn" class="bg-gray-200 dark:bg-gray-500 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-300 dark:hover:bg-gray-400">
+                    Cancelar
+                </button>
+                <button id="confirmResponsablesBtn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-600">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        window.history.pushState(null, '', location.href);
+        window.onpopstate = function() {
+            window.history.pushState(null, '', location.href);
+            if (selectedProducts.length > 0) {
+                showModal(warningModal);
+            }
+        };
+
+        const products = [
+            { id: 1, name: 'ACEITE AGROIL 828 ML "480bultos"' },
+            { id: 2, name: 'ACEITE DE GIRASOL 1 LITRO "50bultos"' },
+            { id: 3, name: 'ACEITE DE OLIVA CAPRI 250 ML X 12 UND "15bultos"' },
+            { id: 4, name: 'ACEITE DE OLIVA CAPRI DE 500ML".' },
+            { id: 5, name: 'ACEITE MAZEITE 1 LITRO "80bultos".' },
+            { id: 6, name: 'ACEITE NATUROIL 850 ML "50bultos"' },
+            { id: 7, name: 'ACEITE PORTUMESA "65bultos"' },
+            { id: 8, name: 'ACEITE VATEL SOYA 1 LITRO "85bultos"' },
+            { id: 9, name: 'ACEITE VATEL SOYA 1/2 LITRO "30bultos"' },
+            { id: 10, name: 'ACEITUNA ENTERA GIRALDA 500 GR "05bultos"' },
+            { id: 11, name: 'ACEITUNAS ENTERAS GIRALDA 200 GR "06bultos"' },
+            { id: 12, name: 'ACEITUNAS RELLENAS GIRALDA/200 GR "06bultos"' },
+            { id: 13, name: 'ADOB /MELBUEN 200 GR "09bultos"' },
+            { id: 14, name: 'AFRECHO 500 GR "07bultos"' },
+            { id: 15, name: 'ALCAPARRAS GIRALDA ".' },
+            { id: 16, name: 'ALINOS CURCUMA "06bultos"' },
+            { id: 17, name: 'ALIÑO SAN MIGUEL GRAND "03bultos"' },
+            { id: 18, name: 'ALIÑO SAN MIGUEL PQ "11bultos"' },
+            { id: 19, name: '•ALUMINIO ROLLO "270UND"' },
+            { id: 20, name: 'ARROZ CONQUISTA 900 GR "52bultos"' },
+            { id: 21, name: 'ARROZ DOÑA EMIIA 900 GMS".' },
+            { id: 22, name: 'ARROZ MARY TRADICIONAL 900 GR ""' },
+            { id: 23, name: 'ARROZ MASIA 900 GR "430bultos"' },
+            { id: 24, name: 'ARROZ PRIMOR 900G CLASICO "110bultos".' },
+            { id: 25, name: 'ARROZ PRIMOR ROJO TRADICIONAL 900 GR "".' },
+            { id: 26, name: 'ATUN DIPLOMATICO AZUL 170 GR "185bultos"' },
+            { id: 27, name: 'ATUN MARGARITA AZUL NATURAL 140 GR "".' },
+            { id: 28, name: 'ATUN MARGARITA ROJO ACEITE 140 G "15bultos".' },
+            { id: 29, name: 'ATUN PACIFICO 170 GRM ".' },
+            { id: 30, name: 'ATUN PEÑERO 170 GR VERDE "170bultos".' },
+            { id: 31, name: 'AVENA 8 DE MARZO 400 GR "10bultos"' },
+            { id: 32, name: 'AVENA DEVITA 400 GR "90bultos"' },
+            { id: 33, name: 'AVENA DON JORGE/ 400 GR "25bultos".' },
+            { id: 34, name: 'AVENA QUAKER 400 GR "07bultos".' },
+            { id: 35, name: 'AZUCAR MORENA MONTALBAN 1KG ""' },
+            { id: 36, name: 'AZUCAR NEGRA 1 KG "20bultos".' },
+            { id: 37, name: 'AZUCAR PASTORA "650bultos" ' },
+            { id: 38, name: 'BALON DE FUTBOL "12UND" ' },
+            { id: 39, name: 'BOMBILLOS AMARILLO "02bultos"' },
+            { id: 40, name: 'BOMBILLOS LED 15WAT "4bultos"' },
+            { id: 41, name: '•BROTES SANARE "135UND"' },
+            { id: 42, name: '•CACHITO *20 TODOS "600UND"' },
+            { id: 43, name: 'CAFÉ CORDILLERA 200 GR "80bultos"' },
+            { id: 44, name: 'CAFÉ CORDILLERA 500 GR "70bultos"' },
+            { id: 45, name: '•CAFÉ EN GRANO 250 GR *40 COROMOTANA "02bultos"' },
+            { id: 46, name: '•CAFÉ EN GRANOS DULCE AMARGO 400GR "04bultos"' },
+            { id: 47, name: '•CAFÉ FRONTINO DE 400 GR "04bultos"' },
+            { id: 48, name: 'CAFÉ LO NUESTRO "35bultos"' },
+            { id: 49, name: 'CAFÉ MATILDE "22bultos"' },
+            { id: 50, name: 'CAFÉ VARYNA ALUMINIO "08bultos"' },
+            { id: 51, name: 'CARAOTA MAIZAL400 GR "105bultos"' },
+            { id: 52, name: 'CARAOTA PESADA NEGRAS/ROJAS 500 GR "2600kg"' },
+            { id: 53, name: 'CARAOTAS D"VITA 400 GR "17bultos"' },
+            { id: 54, name: 'CARNE DE SOYA SOY TEX 200 GR "06bultos"' },
+            { id: 55, name: '•CATALINAS "185UND"' },
+            { id: 56, name: '•CATALINAS/BLANCA *10 "120UND"' },
+            { id: 57, name: 'CEPILLO DE BARRER "15cajas"' },
+            { id: 58, name: 'CEPILLO DENTAL COLGATE "03cajas"' },
+            { id: 59, name: 'CERA TULIPAN 1/2 LT BLANCA "03cajas"' },
+            { id: 60, name: 'CERA TULIPAN 1LT BLANCA "06bultos"' },
+            { id: 61, name: 'CERA TULIPAN DE 1 LT COLOR /COLOR "02cajas"' },
+            { id: 62, name: 'CERA TULIPAN DE 1/2 LT COLOR/COLOR "02cajas"' },
+            { id: 63, name: 'CERELAC BOLSA 400 GR "02cajas"' },
+            { id: 64, name: 'CHOCO PILO 220 GR "07cajas"' },
+            { id: 65, name: 'CHOCOLATE ARTESANAL 200 GR "01bultos"' },
+            { id: 66, name: 'CHOCOLATE TERRY 200GR X24 "11bultos"' },
+            { id: 67, name: 'CHUPETAS "1caja"' },
+            { id: 68, name: 'CLORO ENMANUEL 1 LITRO "14bultos"' },
+            { id: 69, name: 'CLORO TAPA AMARILLA1 LITRO "20bultos"' },
+            { id: 70, name: '•COCADAS "130UND"' },
+            { id: 71, name: 'COMPOTA HEINZ MANZANA 186 GR "10bultos"' },
+            { id: 72, name: 'COMPOTA HEINZ PERA 186 GR "11bultos"' },
+            { id: 73, name: 'COMPOTA NATULAC MANZANA 186 GR "12bultos"' },
+            { id: 74, name: 'COMPOTA NATULAC PERA 186 GR "11bultos"' },
+            { id: 75, name: 'COMPOTA POLLY DE 113 MANZANA GR "02bultos"' },
+            { id: 76, name: 'COMPOTA POLLY DE 113 PERA GR "02bultos".' },
+            { id: 77, name: 'CREMA ARROZ MARY 450 GR "04bultos"' },
+            { id: 78, name: 'CREMA ARROZ PRIMOR 450 GR "02bultos".' },
+            { id: 79, name: 'CREMA COLG/TRIP PLAX 60 GR "10cajas"' },
+            { id: 80, name: 'CREMA COLGATE KIDS 50 GM GRM".' },
+            { id: 81, name: 'CREMA COLGATE NORMAL 90 GR "05cajas"' },
+            { id: 82, name: 'CREMA GALACTIC 75 GR "22cajas"' },
+            { id: 83, name: 'CREMA MAKSIN 135 GR ROJA "07cajas"' },
+            { id: 84, name: 'CUBITO MAGGI "05cajas"' },
+            { id: 85, name: 'DESODORANTE EVERY NIGHT "16cajas"' },
+            { id: 86, name: 'DESODORANTE LEIDY SPEED STICK SOBRE "13UND"' },
+            { id: 87, name: 'DESODORANTE LEIDY TUBO  30 GR "12cajas"' },
+            { id: 88, name: 'DIABLITO /PLUMROSE "23cajas"' },
+            { id: 89, name: 'DIABLITO UNDERWOOD 54 GR "22cajas"' },
+            { id: 90, name: 'DULCE MONCAR TODOS ""' },
+            { id: 91, name: 'ENCURTIDOS EUREKA 500 GR "13UND"' },
+            { id: 92, name: 'ESPONJAS MAX HOGAR "02bultos"' },
+            { id: 93, name: 'FIDEO CAPRI 250 GR "13bultos"' },
+            { id: 94, name: 'FLOR DE JAMAICA "55UND"' },
+            { id: 95, name: 'FORORO MELBUEN "05bultos "' },
+            { id: 96, name: 'FORORO VALLE HOND 400 GR "19bultos".' },
+            { id: 97, name: 'FOSFORO UNIDAD "150UND"' },
+            { id: 98, name: 'FRIJOL PICO NEGRO MAIZALITO*30 ".' },
+            { id: 99, name: 'FRUTO SECO MELBUEN ""' },
+            { id: 100, name: '•GALLETA ARTESANAL "130UND"' },
+            { id: 101, name: 'GALLETA CALEDONIA /250 GR "23UND"' },
+            { id: 102, name: 'GALLETA CHARMY 216 GR "23bultos"' },
+            { id: 103, name: 'GALLETA CLUB SOCIAL "20cajas"' },
+            { id: 104, name: 'GALLETA DUCALES 105 GR "02cajas"' },
+            { id: 105, name: 'GALLETA KRAKER/ HONNY BRAN "16cajas"' },
+            { id: 106, name: 'GALLETA MARIA ITALIA "100bultos"' },
+            { id: 107, name: 'GALLETA MARIASELECTA PUIG "18cajas"' },
+            { id: 108, name: 'GALLETA OREO 1 TUBO "11cajas"' },
+            { id: 109, name: 'GALLETA SODA CARABOBO "33cajas"' },
+            { id: 110, name: 'GALLETA SODA PUIG SOL "20cajas"' },
+            { id: 111, name: 'GALLETA TIP TOP 80 GR "12cajas"' },
+            { id: 112, name: 'GATARINA GATSY 20 KG ""' },
+            { id: 113, name: 'GEL ANTIVACTERIAL 500 ML ""' },
+            { id: 114, name: 'GEL MENTOLADO AVIVIR 250 GR ""' },
+            { id: 115, name: 'GELATINA EVERY NIGHT 250 GR "05bultos"' },
+            { id: 116, name: 'GELATINA GELLA 90 GR "03bultos"' },
+            { id: 117, name: 'GELATINA GOLDEN "".' },
+            { id: 118, name: 'GELATINA SONRISA 66 GR "04cajas"' },
+            { id: 119, name: 'GRANOLA 8 DE MARZO ""' },
+            { id: 120, name: 'GUISANTES TIGO 300 GR "03cajas"' },
+            { id: 121, name: 'HARINA ARAURIGUA 1 KILO "1050bultos"' },
+            { id: 122, name: 'HARINA DE AVENA QUAKER 400 GR "04bultos".' },
+            { id: 123, name: 'HARINA DE TRIGO MARY 900 GR "55bultos"' },
+            { id: 124, name: 'HARINA DOÑA EMILIA 1 KILO "365bultos"' },
+            { id: 125, name: 'HARINA KALY PREMIUN ( NUEVA )"110bultos"' },
+            { id: 126, name: 'HARINA MASIAS 900 GMS ".' },
+            { id: 127, name: 'HARINA P.A.N AMARILLA "".' },
+            { id: 128, name: 'HARINA P.A.N MEZCLA 1 KILO "120bultos".' },
+            { id: 129, name: 'HARINA P.A.N NORMAL "700bultos".' },
+            { id: 130, name: 'HARINA TRIGO ESPECIAL LEUD 900 GR "150bultos"' },
+            { id: 131, name: 'HARINA TRIGO ESPECIAL TODO USO 900 GR "52bultos"' },
+            { id: 132, name: 'HUEVOS 1/2 CARTON "290cajas".' },
+            { id: 133, name: 'JABON ACE 400 GR *18 "07bultos".' },
+            { id: 134, name: 'JABON ALIVE 1 KILO GR "100bultos"' },
+            { id: 135, name: 'JABON ALIVE 500 GR "78bultos"' },
+            { id: 136, name: 'JABON DALAN 125 GR "26cajas"' },
+            { id: 137, name: 'JABON EVERY NIGHT 110 GR "11cajas"' },
+            { id: 138, name: 'JABON FRESCA FRAGANCIA 160 GR "18cajas".' },
+            { id: 139, name: 'JABON LIQUIDO TULIPAN 1 LITRO "03cajas"' },
+            { id: 140, name: 'JABON MULTI CLEAN CITRICO 400GMS "25bultos".' },
+            { id: 141, name: 'JABON MULTI CLEAN FLORAL 400GMS "20bultos".' },
+            { id: 142, name: 'JABON PALMOLIVE 85 GR "13cajas".' },
+            { id: 143, name: 'JABON PANELA EXTRA LIMP 250 GR "25/30cajas".' },
+            { id: 144, name: 'JABON POLVO LLAVES BEBE 400 GR "22bultos".' },
+            { id: 145, name: 'JABON POLVO LLAVES LIMON 400 GR "".' },
+            { id: 146, name: 'JABON POLVO LLAVES TRADIOCIONL 400 GR "".' },
+            { id: 147, name: 'JABON PROTEX 110 GR "14cajas"' },
+            { id: 148, name: 'JABON REXONA 110 GR "10cajas"' },
+            { id: 149, name: 'JUGO DEL MONTES 200ML "07cajas".' },
+            { id: 150, name: 'JUGO EL TUNAL DE 1 LITRO DURAZNO "01caja".' },
+            { id: 151, name: 'JUGO EL TUNAL DE 1 LITRO MANZANA "06cajas".' },
+            { id: 152, name: 'JUGO EL TUNAL DE 1 LITRO PERA "06cajas".' },
+            { id: 153, name: 'JUGO EL TUNAL DE 1 LITRO PIÑA "01caja".' },
+            { id: 154, name: 'JUGO KONGA SABOR DE LIMON 30 GR "56UND".' },
+            { id: 155, name: 'JUGO NARANJA TUNAL 200ML "13cajas".' },
+            { id: 156, name: 'JUGO NATULAC MANZANA 250 ML*24 "55cajas"' },
+            { id: 157, name: 'JUGO NATULAC PERA 250 ML*24".' },
+            { id: 158, name: 'JUGO YUSTY 1/5 ML "50bultos".' },
+            { id: 159, name: 'LACTOVISOY COLONA 500GR "02bultos"' },
+            { id: 160, name: 'LAVA LAVA CHARMYS 1 LITRO "05cajas"' },
+            { id: 161, name: 'LAVAP AXION 225 GR "08cajas"' },
+            { id: 162, name: 'LAVAP LAS LLAVES LIQ 500 CC "03cajas".' },
+            { id: 163, name: 'LAVAPLATO ALMESSY 450 GR "02cajas"' },
+            { id: 164, name: 'LAVAPLATO LAS LLAVES CREMA 250 "01caja".' },
+            { id: 165, name: 'LECHE CAMPIÑA DE 400 GR "40bultos"' },
+            { id: 166, name: 'LECHE CONDENSADA MAITA "25cajas"' },
+            { id: 167, name: 'LECHE CONDENSADA NATULAC 380 ML "08cajas"' },
+            { id: 168, name: 'LECHE DESLACTOSADA TUNAL 1 LT "12cajas".' },
+            { id: 169, name: 'LECHE LIQUIDA SAN SIMON 1 LT "35cajas"' },
+            { id: 170, name: 'LECHE MONTAÑA FRESCA 400 GR "90bultos"' },
+            { id: 171, name: 'LECHE PURISIMA COMPLETA 1 LITRO "65bultos".' },
+            { id: 172, name: 'LECHE PURISIMA DESCREMADA1 LITRO "45cajas".' },
+            { id: 173, name: 'LECHE VALLELAC 375GR "130bultos"' },
+            { id: 174, name: 'LENTEJAS DEVITA 400 GR "24bultos"' },
+            { id: 175, name: 'LENTEJAS MAIZAL 400/GR "28bultos"' },
+            { id: 176, name: 'LENTEJAS PESADA 500 GR "1000kg"' },
+            { id: 177, name: 'LIMPIA POCETAS MAS "03cajas"' },
+            { id: 178, name: 'LIMPIADOR MAREA CRISTALINA 500 cc "04cajas".' },
+            { id: 179, name: 'MAIZ DE COTUFA DVITA 400 GR "09bultos"' },
+            { id: 180, name: 'MAIZ DE COTUFA MAIZAL 400 GR "25bultos"' },
+            { id: 181, name: 'MAIZ DULCE PAFIA "06cajas "' },
+            { id: 182, name: 'MAIZINA AMERICANA 200 GR "04caja"' },
+            { id: 183, name: 'MAIZOR AZUCARADOS 240 GR "14cajas"' },
+            { id: 184, name: 'MAIZOR BOLSA NORMAL300 "22cajas"' },
+            { id: 185, name: 'MAIZOR FRUTI AROS 240 GR "14cajas"' },
+            { id: 186, name: 'MAIZORITO PLANET FRUIT 240 GR "16cajas"' },
+            { id: 187, name: 'MANZANILLA MELBUEN ""' },
+            { id: 188, name: 'MARGARINA MAVESA 250 GR "55cajas".' },
+            { id: 189, name: 'MARGARINA MAVESA 500 GR "230cajas".' },
+            { id: 190, name: 'MARGARINA MIRASOL 454 GR "46cajas"' },
+            { id: 191, name: 'MARGARINA NELLY 500GR "30cajas".' },
+            { id: 192, name: 'MARGARINA RENDIDORA 400 GR "32cajas"' },
+            { id: 193, name: 'MARGARINA VEMESA 400 GR "40cajas"' },
+            { id: 194, name: 'MAYONESA ESPECIAL 445 GR "20cajas"' },
+            { id: 195, name: 'MAYONESA KEMY "55cajas"' },
+            { id: 196, name: 'MAYONESA KRAFT 175 GR "10cajas"' },
+            { id: 197, name: 'MAYONESA KRAFT 445 GR "70cajas"' },
+            { id: 198, name: 'MAYONESA MAVESA 175 GR "10cajas".' },
+            { id: 199, name: 'MAYONESA MAVESA 445 GR "55cajas".' },
+            { id: 200, name: 'MAYONESA MAVESA 910 GR "12cajas".' },
+            { id: 201, name: 'MAYONESA REAL 445 GR "75cajas".' },
+            { id: 202, name: 'MEGA AROS "30bultos"' },
+            { id: 203, name: 'MENTOL AVIVIR 30 GRAMOS ""' },
+            { id: 204, name: 'MERMELADA NUEVA (ETNA ) 220ML "03cajas"' },
+            { id: 205, name: 'MEZCLA CACHAPA PAN "05cajas"' },
+            { id: 206, name: 'MEZCLA CACHAPA SEMILLA "07cajas"' },
+            { id: 207, name: 'MIEL CAMPO REAL PQ 350 ML ""' },
+            { id: 208, name: 'MIEL DE SAN CARLOS 350ML "26UND"' },
+            { id: 209, name: 'MIGURD X24 UND 125 GR "".' },
+            { id: 210, name: '•MORTADELA /PUNTA MTE 1 KG "40/45bultos"' },
+            { id: 211, name: '•MORTADELA /PUNTA MTE 1/2 KG "20/25bultos"' },
+            { id: 212, name: '•MORTADELA ALIBAL 1/2KILO "20/25bultos"' },
+            { id: 213, name: '•MORTADELA ALIBAL1 KILO "45/50bultos"' },
+            { id: 214, name: '•MORTADELA ALPRO 400 gr "15/20bultos"' },
+            { id: 215, name: '•MORTADELA ALPRO 900 GR "15/20bultos"' },
+            { id: 216, name: '•MORTADELA ARICHUNA 1 KILO "11cajas"' },
+            { id: 217, name: '•MORTADELA BOLOGÑA 500 GR "10/12bultos"' },
+            { id: 218, name: 'MORTADELA CARACAS 900 GR "25/30bultos".' },
+            { id: 219, name: '•MORTADELA PLUMROSE 1 KILO "40/45bultos"' },
+            { id: 220, name: 'MOSTAZA EUREKA PLASTICA 285 GR "20/21cajas"' },
+            { id: 221, name: 'MULTIUSO TULIPAN 1 LITRO "02cajas"' },
+            { id: 222, name: 'MULTIUSO TULIPAN 1/2 LITRO "02cajas"' },
+            { id: 223, name: '•NATILLA GUARALAC "600UND"' },
+            { id: 224, name: '•NATILLA VEGA BOLSA 450 GR "700UND"' },
+            { id: 225, name: 'NESTUN BOLSA 225 GR 3 CEREALES "02cajas"' },
+            { id: 226, name: 'NUTRIBELLA "02cajas"' },
+            { id: 227, name: '•PAN ARABE "800UND"' },
+            { id: 228, name: '•PAN DE DIOS "150UND"' },
+            { id: 229, name: '•PAN DE GUAYABA "510UND"' },
+            { id: 230, name: '•PAN DE HAMBURGUESA X 08 "100UND"' },
+            { id: 231, name: '•PAN DE PERRO "50UND"' },
+            { id: 232, name: '•PAN DE SANDWICHE AVENA GR "140"' },
+            { id: 233, name: '•PAN DE SANDWICHE EL NACIONAL "100UND"' },
+            { id: 234, name: '•PAN DE SANDWICHE GR "350UND"' },
+            { id: 235, name: '•PAN DE SANDWICHE ZANAHORIA GR140' },
+            { id: 236, name: '•PAN DE TUNJA PEQ "820UND"' },
+            { id: 237, name: '•PAN SANDWICHE PEQ "280UND"' },
+            { id: 238, name: 'PANELA DULCE 500 gr CON ETIQUETA "25bultos"' },
+            { id: 239, name: 'PAÑALES BABY FINGER G- XG 10 UND "01bulto"' },
+            { id: 240, name: 'PAÑALES BABY FINGER GD 16 UND ""' },
+            { id: 241, name: 'PAÑALES HUGGUIES * 20 UNID G AZUL "04bulto"' },
+            { id: 242, name: 'PAÑALES HUGGUIES MED "04bultos"' },
+            { id: 243, name: 'PAPEL /ROSAL 4 ROLL 215 BLANCO "160bultos"' },
+            { id: 244, name: 'PAPEL CARICIAS DE 600HOJAS".' },
+            { id: 245, name: 'PAPEL ROSAL 400 HOJAS "105bultos"' },
+            { id: 246, name: 'PAPEL ROSAL DE 600 HOJAS "105bultos"' },
+            { id: 247, name: 'PASTA CAPRI 1 KILO CORTA AZUL "160bultos"' },
+            { id: 248, name: 'PASTA CAPRI 1 KILO LARGA AZUL "200bultos"' },
+            { id: 249, name: 'PASTA CORTA 500 GRS "50bultos".' },
+            { id: 250, name: 'PASTA ESPECIAL CORTA "400bultos"' },
+            { id: 251, name: 'PASTA ESPECIAL LARGA "680bultos"' },
+            { id: 252, name: 'PASTA INTEGRAL 8 D MARZO "07bultos"' },
+            { id: 253, name: 'PASTA PRIMOR CORTA NEGRA 1KG "07bultos".' },
+            { id: 254, name: 'PASTA PRIMOR EXTRA CORTA ROJA 1 KG "03bultos".' },
+            { id: 255, name: 'PASTA PRIMOR EXTRA LARGA ROJA 1 KG "03bultos".' },
+            { id: 256, name: 'PASTA PRIMOR LARGA NEGRA 1 KG "07bultos".' },
+            { id: 257, name: 'PASTA RONCO DE 500 GR "05bultos"' },
+            { id: 258, name: '•PASTELITO DE AREQUIPE "120UND"' },
+            { id: 259, name: 'PASTICHO RONCO DE 250 GR "13bultos"' },
+            { id: 260, name: 'PEPITO CHEEZ PEK 75 GR "16bultos"' },
+            { id: 261, name: 'PEPITO OSTIS 100 GR "15bultos"' },
+            { id: 262, name: 'PEPITONA MARGARITA 140 GR "05bultos".' },
+            { id: 263, name: 'PERRAR DOGOURMENT ADULTO 1/2 KG""' },
+            { id: 264, name: 'PERRAR DOGOURMENT CACHORRO 1/2 KG""' },
+            { id: 265, name: 'PERRARINA DOG CHAU 1/2 KILO""' },
+            { id: 266, name: 'PERRARINA KANINA 1/2 KG *18""' },
+            { id: 267, name: 'PERRARINA PURINA 1/2 KG""' },
+            { id: 268, name: 'PERRARINA SUPER CAN CACHORRO 1/2""' },
+            { id: 269, name: 'PERRARINA SUPER CAN NORMAL 1/3""' },
+            { id: 270, name: '•PIZZA LA CHEVERISIMA GRND "100UND"' },
+            { id: 271, name: 'PRESTOBARBA ALLISON /ALMESSI 3 HOJILLA "400UND"' },
+            { id: 272, name: 'PRESTOBARBA DORCO X5 "130UND"' },
+            { id: 273, name: '•PULPAS DE FRUTA "420UND"' },
+            { id: 274, name: '•QUESO 1 KILO "1500/2000"' },
+            { id: 275, name: 'QUINCHONCHO 1/2 "167kg"' },
+            { id: 276, name: 'REFRESCO GLUP 2 LITROS"20bultos"' },
+            { id: 277, name: 'REFRESCO GOLDEN 1/2LTR "40bultos".' },
+            { id: 278, name: 'REFRESCO PEPSI 1/2LTR NEGRA "15bultos".' },
+            { id: 279, name: 'RIKESA "20bultos"' },
+            { id: 280, name: '•SACOS ECOLOGICO "600UND"' },
+            { id: 281, name: 'SAL EN SAL "65bultos"' },
+            { id: 282, name: 'SAL ESMERALDA "22bultos"' },
+            { id: 283, name: 'SALSA CHINA 150GR "13bultos"' },
+            { id: 284, name: 'SALSA CUMBRE 380 GR "45/50bultos"' },
+            { id: 285, name: 'SALSA FRITZ PICANTE "3cajas"' },
+            { id: 286, name: 'SALSA HEINZ/ 397 GR "30cajas"' },
+            { id: 287, name: 'SALSA INGLESA IBERIA 150CC "15bultos"' },
+            { id: 288, name: 'SALSA KETCHUP GIRALDA 397 GR "05cajas"' },
+            { id: 289, name: 'SALSA MONCAR "2cajas"' },
+            { id: 290, name: 'SALSA PAMPERO 397 GR "25cajas".' },
+            { id: 291, name: 'SALSA PARA PASTA GIRALDA "05cajas"' },
+            { id: 292, name: 'SALSA ROSADA ALBECA 500 GR "02cajas"' },
+            { id: 293, name: 'SALSA TIQ FLORES 397 GR "50cajas"' },
+            { id: 294, name: 'SALSAS LIQUIDA REY AJO 150 CC "25cajas"' },
+            { id: 295, name: 'SALSAS LIQUIDA REY INGLESA 150 CC "10cajas"' },
+            { id: 296, name: 'SALSAS LIQUIDA REY SOYA 150 CC "15cajas"' },
+            { id: 297, name: 'SALSAS ROSADA ZUYCH/ 240 GR "02cajas"' },
+            { id: 298, name: 'SALSAS ZUYCH CHEDDAR "04cajas"' },
+            { id: 299, name: 'SALSAS ZUYHC MAIZ ""' },
+            { id: 300, name: 'SARD. MARGARITA EN ACEITE 170 GR "20bultos".' },
+            { id: 301, name: 'SARD. MARGARITA EN TOMATE 170 GR "20bultos".' },
+            { id: 302, name: 'SARD. MARGARITA PICANTE 170 GR "20bultos".' },
+            { id: 303, name: 'SARDINA INCOSA ACEITE 170 GR ".' },
+            { id: 304, name: 'SARDINA INCOSA TOMATE 170 GR "250bultos"' },
+            { id: 305, name: 'SERVILLETA Z PEQUEÑA "45bultos"' },
+            { id: 306, name: 'SHAMPO H&SHDE SOBRE "02cajas"' },
+            { id: 307, name: 'SHAMPOO HEAD & SHOULDERS DE 180ml "05cajas"' },
+            { id: 308, name: 'SHAMPU ALIVE 350 ML "5cajas"' },
+            { id: 309, name: 'SHAMPU SAVITAL "07cajas"' },
+            { id: 310, name: 'SOPA SOBRE MAGGY "20cajas"' },
+            { id: 311, name: 'SOPÁ SOBRE IBERIA "2cajas"' },
+            { id: 312, name: 'SUAVISANTE DOWNY "07cajas".' },
+            { id: 313, name: 'SUAVISANTE LAS LLAVES"".' },
+            { id: 314, name: 'SUAVISANTE TULIPAN 1 LT "01caja"' },
+            { id: 315, name: 'SUAVISANTE TULIPAN 1/2 LT "01caja"' },
+            { id: 316, name: 'SUAVITEL SOBRE "35cajas"' },
+            { id: 317, name: '•SUERO GUARALAC "1100UND"' },
+            { id: 318, name: '•SUERO KASERO KO 850 ML "720UND"' },
+            { id: 319, name: '•SUERO LA LAJITA "80UND"' },
+            { id: 320, name: '•SUERO VEGA "950UND"' },
+            { id: 321, name: '•SUERO VEGA PICANTE "80UND"' },
+            { id: 322, name: 'TALLARIN ESPECIAL 500 GR "13bultos"' },
+            { id: 323, name: '•TAMARINDO "120UND"' },
+            { id: 324, name: '•TAMARINDO ETNA "222UND"' },
+            { id: 325, name: 'TANG "50UND"' },
+            { id: 326, name: 'TOALLA KOTEX NOCTURNA "30bultos"' },
+            { id: 327, name: 'TOALLAS CONCOR NOCTURNas"05bultos"' },
+            { id: 328, name: 'TOALLAS HUMEDAS "03bultos" ' },
+            { id: 329, name: 'TOALLIN PAVECA ROSAL TOWELS 24*80 HOJAS "45bulto"' },
+            { id: 330, name: 'TOBOS PLASTICO "35UND"' },
+            { id: 331, name: 'TODDY 200 GR "22bultos".' },
+            { id: 332, name: 'TWISTY QUESO 200 GR "25cajas"' },
+            { id: 333, name: 'UVAS PASAS 200GR ""' },
+            { id: 334, name: 'VAINILLA "04cajas"' },
+            { id: 335, name: 'VELAS * 4 UN POPULAR "04cajas"' },
+            { id: 336, name: 'VELAS SEÑOR SEÑOR 4 UNID "05cajas" ""' },
+            { id: 337, name: 'VELONES SEÑOR SEÑOR PEQUEÑO UNIDAD "2bultos"' },
+            { id: 338, name: 'VINAGRE ETNA MANGO 1 LTS ""' },
+            { id: 339, name: 'VINAGRE ETNA MANZANA 300ML ""' },
+            { id: 340, name: 'VINAGRE EUREKA 1 LITRO "25bultos"' },
+            { id: 341, name: 'VINAGRE KEPA GRANDE DE 1 LTS "40bultos"' },
+            { id: 342, name: 'VINAGRE MAVESA DE 1/2 LTS "03bultos".' },
+            { id: 343, name: 'VINAGRE TIQUIRE 1/2 LITRO "10bultos"' },
+            { id: 344, name: 'YOGURT GUARALAC 400ML"".' },
+            { id: 344, name: 'TOALLAS ALIVE DIURNA"".' },
+            { id: 344, name: 'TOALLAS ALIVE NOCTURNA "".' },
+            { id: 344, name: 'MEGA BOL"".' },
+        ].map(product => {
+            // Extraer la unidad de medida del nombre del producto
+            const match = product.name.match(/"(.*?)"|""/);
+            const unit = match ? match[1].replace(/\d+/g, '').replace(/[.¿?¿¡]/g, '').trim().split(' ')[0] : '';
+            return { ...product, unit };
+        });
+
+        // Mapeo de empresas a NOMBRES de productos para el modo "Pedido Directo"
+        const companyProductMapping = {
+            'AGRO INDUSTRIAS MONTE CARMELO': [ 'MAYONESA REAL 445 GR "75cajas".' ],
+            'ALFONSO RIVAS': [ 'MAIZOR AZUCARADOS 240 GR "14cajas"', 'MAIZOR BOLSA NORMAL300 "22cajas"', 'MAIZOR FRUTI AROS 240 GR "14cajas"' ],
+            'ALIMENTOS  HEINZ': [ 'COMPOTA HEINZ MANZANA 186 GR "10bultos"', 'COMPOTA HEINZ PERA 186 GR "11bultos"', 'SALSA HEINZ/ 397 GR "30cajas"', 'COMPOTA POLLY DE 113 MANZANA GR "02bultos"', 'COMPOTA POLLY DE 113 PERA GR "02bultos".', 'SALSA TIQ FLORES 397 GR "50cajas"', 'SALSA CUMBRE 380 GR "45/50bultos"', 'VINAGRE TIQUIRE 1/2 LITRO "10bultos"', 'GELATINA SONRISA 66 GR "04cajas"' ],
+            'ALIMENTOS VEMESA C,A': [ 'MARGARINA VEMESA 400 GR "40cajas"', 'MAYONESA KEMY "55cajas"' ],
+            'ALIVE': [ 'JABON ALIVE 1 KILO GR "100bultos"', 'JABON ALIVE 500 GR "78bultos"', 'SHAMPU ALIVE 350 ML "5cajas"','TOALLAS ALIVE DIURNA"".','TOALLAS ALIVE NOCTURNA "".', 'TOALLAS HUMEDAS "03bultos" ', 'PAÑALES BABY FINGER G- XG 10 UND "01bulto"', 'PAÑALES BABY FINGER GD 16 UND ""', 'PRESTOBARBA DORCO X5 "130UND"' ],
+            'ASOPORTUGUESA': ['HARINA ARAURIGUA 1 KILO "1050bultos"', 'HARINA DOÑA EMILIA 1 KILO "365bultos"', 'ARROZ DOÑA EMIIA 900 GMS".' ],
+            'CAFÉ EN GRANO': [ '•CAFÉ EN GRANO 250 GR *40 COROMOTANA "02bultos"', '•CAFÉ EN GRANOS DULCE AMARGO 400GR "04bultos"', '•CAFÉ FRONTINO DE 400 GR "04bultos"' ],
+            'CAMPESINO': ['LECHE CAMPIÑA DE 400 GR "40bultos"', 'CEPILLO DENTAL COLGATE "03cajas"', 'CREMA COLG/TRIP PLAX 60 GR "10cajas"', 'CREMA COLGATE NORMAL 90 GR "05cajas"', 'CREMA COLGATE KIDS 50 GM GRM".', 'DESODORANTE LEIDY TUBO  30 GR "12cajas"', 'JABON PALMOLIVE 85 GR "13cajas".', 'JABON PROTEX 110 GR "14cajas"', 'LAVAP AXION 225 GR "08cajas"'],
+            'CAPRI': [ 'ACEITE DE OLIVA CAPRI 250 ML X 12 UND "15bultos"', 'ACEITE DE OLIVA CAPRI DE 500ML".', 'FIDEO CAPRI 250 GR "13bultos"', 'PASTA CAPRI 1 KILO CORTA AZUL "160bultos"', 'PASTA CAPRI 1 KILO LARGA AZUL "200bultos"' ],
+            'CEREVEN': ['FORORO VALLE HOND 400 GR "19bultos".', 'LECHE VALLELAC 375GR "130bultos"'],
+            'COMERCILIZADORA 2016': ['ATUN PACIFICO 170 GRM ".'],
+            'COPOSA': ['MARGARINA MIRASOL 454 GR "46cajas"', 'ACEITE NATUROIL 850 ML "50bultos"'],
+            'DEVITA RICARDO': [ 'AVENA DEVITA 400 GR "90bultos"', 'CARAOTAS D"VITA 400 GR "17bultos"', 'LENTEJAS DEVITA 400 GR "24bultos"', 'MAIZ DE COTUFA DVITA 400 GR "09bultos"', 'AVENA DON JORGE/ 400 GR "25bultos".', 'CAFÉ CORDILLERA 200 GR "80bultos"', 'CAFÉ CORDILLERA 500 GR "70bultos"' ],
+            'DIALCA': ['JABON REXONA 110 GR "10cajas"', 'SHAMPU SAVITAL "07cajas"'],
+            'DIGILCA': [ 'CARNE DE SOYA SOY TEX 200 GR "06bultos"' ],
+            'DIMASSI': [ 'PAÑALES HUGGUIES * 20 UNID G AZUL "04bulto"', 'PAÑALES HUGGUIES MED "04bultos"', 'TOALLA KOTEX NOCTURNA "30bultos"'],
+            'EUREKA': [ 'MOSTAZA EUREKA PLASTICA 285 GR "20/21cajas"', 'VINAGRE EUREKA 1 LITRO "25bultos"'],
+            'GENICA': [ 'LACTOVISOY COLONA 500GR "02bultos"', 'TWISTY QUESO 200 GR "25cajas"'],
+            'IBERIA': [ 'SALSA INGLESA IBERIA 150CC "15bultos"', 'SOPÁ SOBRE IBERIA "2cajas"' ],
+            'INCOSA': [ 'SARDINA INCOSA TOMATE 170 GR "250bultos"', 'SARDINA INCOSA ACEITE 170 GR ".' ],
+            'INDUSTRIAS EL INTENTO ': [ 'ARROZ CONQUISTA 900 GR "52bultos"' ],
+            'LA ESPECIAL': [ 'HARINA TRIGO ESPECIAL LEUD 900 GR "150bultos"', 'HARINA TRIGO ESPECIAL TODO USO 900 GR "52bultos"', 'MAYONESA ESPECIAL 445 GR "20cajas"', 'PASTA ESPECIAL CORTA "400bultos"', 'PASTA ESPECIAL LARGA "680bultos"', 'TALLARIN ESPECIAL 500 GR "13bultos"' ],
+            'LACTEOS SAN SIMON': [ 'LECHE LIQUIDA SAN SIMON 1 LT "35cajas"', 'LECHE MONTAÑA FRESCA 400 GR "90bultos"'],
+            'MAIZALITO': [ 'CARAOTA MAIZAL400 GR "105bultos"', 'LENTEJAS MAIZAL 400/GR "28bultos"', 'MAIZ DE COTUFA MAIZAL 400 GR "25bultos"', 'FRIJOL PICO NEGRO MAIZALITO*30 ".' ],
+            'MARIAN DISTRIBUIDORA': [ 'ATUN PEÑERO 170 GR VERDE "170bultos".', 'ATUN DIPLOMATICO AZUL 170 GR "185bultos"'],
+            'MARY-LORO-': [ 'ARROZ MARY TRADICIONAL 900 GR ""', 'CREMA ARROZ MARY 450 GR "04bultos"', 'HARINA DE TRIGO MARY 900 GR "55bultos"', 'GALLETA CALEDONIA /250 GR "23UND"', 'GALLETA TIP TOP 80 GR "12cajas"', 'GALLETA CHARMY 216 GR "23bultos"'],
+            'MASIAS HARINA ARROZ': [ 'ARROZ MASIA 900 GR "430bultos"', 'HARINA MASIAS 900 GMS ".'],
+            'MISEVEN': [ 'HARINA KALY PREMIUN ( NUEVA )"110bultos"' ],
+            'MIXTO FESTIVAL': ['MEGA AROS "30bultos"','MEGA BOL"".', 'PEPITO CHEEZ PEK 75 GR "16bultos"', 'PEPITO OSTIS 100 GR "15bultos"'],
+            'MONDELE INTERNANCIONAL': [ 'GALLETA CLUB SOCIAL "20cajas"', 'GALLETA OREO 1 TUBO "11cajas"', 'MAYONESA KRAFT 175 GR "10cajas"', 'MAYONESA KRAFT 445 GR "70cajas"', 'GALLETA KRAKER/ HONNY BRAN "16cajas"', 'TANG "50UND"' ],
+            'MULTINACIONAL DE SABORES': ['REFRESCO GLUP 2 LITROS"20bultos"', 'JUGO YUSTY 1/5 ML "50bultos".'],
+            'NATULAC': [ 'COMPOTA NATULAC MANZANA 186 GR "12bultos"', 'COMPOTA NATULAC PERA 186 GR "11bultos"', 'JUGO NATULAC PERA 250 ML*24".', 'JUGO NATULAC MANZANA 250 ML*24 "55cajas"', 'LECHE CONDENSADA NATULAC 380 ML "08cajas"', 'LECHE CONDENSADA MAITA "25cajas"', 'CHOCO PILO 220 GR "07cajas"' ],
+            'NESTLE': [ 'CERELAC BOLSA 400 GR "02cajas"', 'CUBITO MAGGI "05cajas"', 'NESTUN BOLSA 225 GR 3 CEREALES "02cajas"', 'SOPA SOBRE MAGGY "20cajas"' ,'GATARINA GATSY 20 KG ""' ,'PERRAR DOGOURMENT ADULTO 1/2 KG""' ,'PERRAR DOGOURMENT CACHORRO 1/2 KG""'],
+            'NUEVA TENDENCIA': [ 'SALSA CHINA 150GR "13bultos"', 'DIABLITO UNDERWOOD 54 GR "22cajas"'],
+            'OTROS PRODUCTOS ': [ 'ACEITE AGROIL 828 ML "480bultos"', 'AZUCAR PASTORA "650bultos" ', 'CARAOTA PESADA NEGRAS/ROJAS 500 GR "2600kg"', 'CHOCOLATE TERRY 200GR X24 "11bultos"', 'CLORO TAPA AMARILLA1 LITRO "20bultos"', 'CREMA GALACTIC 75 GR "22cajas"', 'GUISANTES TIGO 300 GR "03cajas"', 'JUGO DEL MONTES 200ML "07cajas".', 'LAVAPLATO ALMESSY 450 GR "02cajas"', 'MAIZ DULCE PAFIA "06cajas "', 'PANELA DULCE 500 gr CON ETIQUETA "25bultos"', 'SUAVITEL SOBRE "35cajas"', 'TOALLAS CONCOR NOCTURNas"05bultos"', 'VINAGRE KEPA GRANDE DE 1 LTS "40bultos"', 'LIMPIA POCETAS MAS "03cajas"', 'SALSA FRITZ PICANTE "3cajas"', 'TOBOS PLASTICO "35UND"', 'QUINCHONCHO 1/2 "167kg"', 'PAPEL CARICIAS DE 600HOJAS".', 'LENTEJAS PESADA 500 GR "1000kg"', '•MORTADELA PLUMROSE 1 KILO "40/45bultos"', 'CLORO ENMANUEL 1 LITRO "14bultos"', 'BOMBILLOS AMARILLO "02bultos"', 'BOMBILLOS LED 15WAT "4bultos"', 'ATUN PACIFICO 170 GRM ".', 'SAL ESMERALDA "22bultos"', 'SAL EN SAL "65bultos"'],
+            'PAPELES VENEZOLANO': [ 'PAPEL /ROSAL 4 ROLL 215 BLANCO "160bultos"', 'PAPEL ROSAL 400 HOJAS "105bultos"', 'PAPEL ROSAL DE 600 HOJAS "105bultos"', 'TOALLIN PAVECA ROSAL TOWELS 24*80 HOJAS "45bulto"', 'SERVILLETA Z PEQUEÑA "45bultos"' ],
+            'PRODUCTOS 8 DE MARZO': [ 'AFRECHO 500 GR "07bultos"', 'AVENA 8 DE MARZO 400 GR "10bultos"', 'GRANOLA 8 DE MARZO ""', 'PASTA INTEGRAL 8 D MARZO "07bultos"', 'CAFÉ MATILDE "22bultos"' ],
+            'PRODUCTOS CARGIL DE VENZ': [ 'ACEITE VATEL SOYA 1 LITRO "85bultos"', 'ACEITE VATEL SOYA 1/2 LITRO "30bultos"', 'PASTA RONCO DE 500 GR "05bultos"', 'PASTICHO RONCO DE 250 GR "13bultos"'],
+            'PRODUCTOS EL REY': [ 'SALSAS LIQUIDA REY AJO 150 CC "25cajas"', 'SALSAS LIQUIDA REY INGLESA 150 CC "10cajas"', 'SALSAS LIQUIDA REY SOYA 150 CC "15cajas"' ],
+            'PUIG': [ 'GALLETA MARIASELECTA PUIG "18cajas"', 'GALLETA SODA PUIG SOL "20cajas"' ],
+            'SALSA GIRALDA': [ 'ALCAPARRAS GIRALDA ".', 'ACEITUNAS RELLENAS GIRALDA/200 GR "06bultos"', 'SALSA PARA PASTA GIRALDA "05cajas"' ],
+            'SANDY': [ 'ALIÑO SAN MIGUEL GRAND "03bultos"', 'ALIÑO SAN MIGUEL PQ "11bultos"' ],
+            'SANTONNY': [ 'MAIZORITO PLANET FRUIT 240 GR "16cajas"' ],
+            'SUPER DULCES': [ 'GALLETA MARIA ITALIA "100bultos"', 'GALLETA DUCALES 105 GR "02cajas"' ],
+            'UNILEVER': [ 'DESODORANTE EVERY NIGHT "16cajas"', 'JABON EVERY NIGHT 110 GR "11cajas"', 'GELATINA EVERY NIGHT 250 GR "05bultos"' ],
+            'VELAS SEÑOR SEÑOR Y POPULARES': [ 'VELAS * 4 UN POPULAR "04cajas"', 'VELAS SEÑOR SEÑOR 4 UNID "05cajas" ""', 'VELONES SEÑOR SEÑOR PEQUEÑO UNIDAD "2bultos"' ],
+            'ZUYCH': [ 'SALSAS ROSADA ZUYCH/ 240 GR "02cajas"', 'SALSAS ZUYCH CHEDDAR "04cajas"', 'SALSAS ZUYHC MAIZ ""' ]
+        };
+
+        const productList = document.getElementById('productList');
+        const searchInput = document.getElementById('searchInput');
+        const filterSelectedBtn = document.getElementById('filterSelectedBtn');
+        const filterPanesBtn = document.getElementById('filterPanesBtn');
+        const filterPolarBtn = document.getElementById('filterPolarBtn');
+        const directOrderBtn = document.getElementById('directOrderBtn');
+        const filterButtonsContainer = document.getElementById('filterButtonsContainer');
+        const companyFiltersContainer = document.getElementById('companyFiltersContainer');
+        const selectedProductsContainer = document.getElementById('selectedProductsContainer');
+        const selectedProductsList = document.getElementById('selectedProductsList');
+        
+        // Pre-procesar productos para la búsqueda de "Pedido Directo"
+        const directOrderProducts = [];
+        Object.keys(companyProductMapping).forEach(company => {
+            const productNames = companyProductMapping[company];
+            productNames.forEach(name => {
+                const product = products.find(p => p.name === name);
+                if (product) {
+                    if (!directOrderProducts.some(p => p.id === product.id)) {
+                        directOrderProducts.push({ ...product, company: company });
+                    }
+                }
+            });
+        });
+
+        let selectedProducts = [];
+
+        const calculatorModal = document.getElementById('calculatorModal');
+        const modalProductName = document.getElementById('modalProductName');
+        const calculatorDisplay = document.getElementById('calculatorDisplay');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const exportExcelBtn = document.getElementById('exportExcelBtn');
+        const downloadImageBtn = document.getElementById('downloadImageBtn');
+        const shareBtn = document.getElementById('shareBtn');
+        const exportDirectOrderBtn = document.getElementById('exportDirectOrderBtn');
+        const mainCloseBtn = document.getElementById('mainCloseBtn');
+        const warningModal = document.getElementById('warningModal');
+        const cancelExitBtn = document.getElementById('cancelExitBtn');
+        const confirmExitBtn = document.getElementById('confirmExitBtn');
+        const warningTitle = document.getElementById('warningTitle');
+        const warningMessage = document.getElementById('warningMessage');
+        const topRightButtons = document.getElementById('topRightButtons');
+
+        // Modal de vista previa
+        const previewModal = document.getElementById('previewModal');
+        const previewImage = document.getElementById('previewImage');
+        const closePreviewBtn = document.getElementById('closePreviewBtn');
+        const downloadPreviewBtn = document.getElementById('downloadPreviewBtn');
+        const downloadPreviewIconBtn = document.getElementById('downloadPreviewIconBtn');
+
+        // Modal de ayuda
+        const helpBtn = document.getElementById('helpBtn');
+        const helpModal = document.getElementById('helpModal');
+        const closeHelpModalBtn = document.getElementById('closeHelpModalBtn');
+
+        // Elementos del modal de responsables
+        const addResponsablesBtn = document.getElementById('addResponsablesBtn');
+        const responsablesModal = document.getElementById('responsablesModal');
+        const responsable1Input = document.getElementById('responsable1Input');
+        const responsable2Input = document.getElementById('responsable2Input');
+        const cancelResponsablesBtn = document.getElementById('cancelResponsablesBtn');
+        const confirmResponsablesBtn = document.getElementById('confirmResponsablesBtn');
+
+        // El modal de compartir y sus variables han sido eliminados
+        
+        // Botón de opciones y contenedor de botones de exportación
+        const optionsBtn = document.getElementById('optionsBtn');
+        const exportButtonsContainer = document.getElementById('exportButtonsContainer');
+
+        let currentQuantity = '';
+        let currentProduct = null;
+        let searchTimeout;
+        let productIdToDelete = null;
+        let responsables = ['', ''];
+        let menuTimeoutId = null;
+
+        function showModal(modal) {
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+        }
+
+        function hideModal(modal) {
+            if (!modal) return;
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300); // Duración de la transición
+        }
+
+        let filters = {
+            selected: false,
+            panes: false,
+            polar: false,
+            directOrder: false,
+            all: true
+        };
+        
+        // Define el conjunto de productos para el "Pedido Directo"
+        const directOrderProductIds = [1, 23, 131, 167, 197];
+
+        function renderProducts(filteredProducts) {
+            productList.innerHTML = '';
+            
+            if (filteredProducts.length === 0) {
+                productList.innerHTML += '<p class="col-span-full text-center text-gray-500 text-lg">No se encontraron productos que coincidan con los filtros o la búsqueda.</p>';
+                return;
+            }
+
+            let sortedList = [...filteredProducts];
+            sortedList.sort((a, b) => {
+                const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                return nameA.localeCompare(nameB);
+            });
+
+            const listHtml = sortedList.map(item => {
+                const isSelected = selectedProducts.some(p => p.id === item.id);
+                const cardClass = isSelected ? 'product-card selected' : 'product-card';
+                return `
+                    <div class="${cardClass} flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.name}">
+                        <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.id}. ${item.name}</h2>
+                    </div>
+                `;
+            }).join('');
+
+            productList.innerHTML += listHtml;
+        }
+        
+        function renderSelectedProducts(productsToRender) {
+            const productsToShow = productsToRender !== undefined ? productsToRender : selectedProducts;
+
+            selectedProductsList.innerHTML = '';
+            
+            const sortedProducts = [...productsToShow].sort((a, b) => {
+                const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            if (selectedProducts.length > 0) {
+                helpBtn.classList.add('hidden');
+            } else {
+                helpBtn.classList.remove('hidden');
+            }
+
+            if (sortedProducts.length > 0) {
+                const selectedHtml = sortedProducts.map(product => {
+                    return `
+                        <div class="bg-blue-50 dark:bg-slate-700 p-4 rounded-lg shadow-md flex justify-between items-center transition-all duration-200 border-2 border-blue-400 dark:border-blue-700">
+                            <span class="font-medium text-blue-800 dark:text-blue-200">${product.name}</span>
+                            <div class="flex items-center gap-4">
+                                <span class="font-bold text-blue-900 dark:text-blue-100">${product.quantity} ${product.unit}</span>
+                                <button class="delete-button" data-id="${product.id}">Eliminar</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                selectedProductsList.innerHTML = selectedHtml;
+                document.querySelectorAll('.delete-button').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const productId = parseInt(event.target.dataset.id, 10);
+                        productIdToDelete = productId;
+                        warningTitle.textContent = 'Confirmar Eliminación';
+                        warningMessage.textContent = '¿Estás seguro de que deseas eliminar este producto?';
+                        confirmExitBtn.textContent = 'Sí, eliminar';
+                        cancelExitBtn.textContent = 'Cancelar';
+                        showModal(warningModal);
+                    });
+                });
+            } else {
+                if (selectedProducts.length > 0 && productsToRender !== undefined) {
+                     selectedProductsList.innerHTML = '<p class="text-center text-gray-500 text-lg">No se encontraron productos seleccionados que coincidan con la búsqueda.</p>';
+                } else {
+                    selectedProductsList.innerHTML = '<p class="text-center text-gray-500 text-lg">Aún no has agregado productos.</p>';
+                }
+            }
+        }
+        
+        function updateUI() {
+            const isAnyFilterActive = filters.selected || filters.panes || filters.polar || filters.directOrder;
+            const searchContainer = document.getElementById('searchContainer');
+            const directOrderSearchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
+            
+            // Oculta los otros botones de filtro cuando uno está activo
+            filterSelectedBtn.classList.toggle('hidden', isAnyFilterActive && !filters.selected);
+            filterPanesBtn.classList.toggle('hidden', isAnyFilterActive && !filters.panes);
+            filterPolarBtn.classList.toggle('hidden', isAnyFilterActive && !filters.polar);
+            directOrderBtn.classList.toggle('hidden', isAnyFilterActive && !filters.directOrder);
+
+            // Ajusta la cuadrícula para que el botón activo ocupe todo el espacio
+            if (isAnyFilterActive) {
+                filterButtonsContainer.classList.remove('sm:grid-cols-4');
+            } else {
+                filterButtonsContainer.classList.add('sm:grid-cols-4');
+            }
+            
+            if (isAnyFilterActive || selectedProducts.length > 0) {
+                helpBtn.classList.add('hidden');
+            } else {
+                helpBtn.classList.remove('hidden');
+            }
+
+            if (isAnyFilterActive) {
+                mainCloseBtn.classList.remove('hidden');
+                topRightButtons.classList.add('hidden');
+            } else {
+                mainCloseBtn.classList.add('hidden');
+                topRightButtons.classList.remove('hidden');
+            }
+
+            if (filters.selected) {
+                productList.classList.add('hidden');
+                selectedProductsContainer.classList.remove('hidden');
+                companyFiltersContainer.classList.add('hidden');
+                directOrderSearchResultsContainer.classList.add('hidden');
+                renderSelectedProducts();
+            } else {
+                productList.classList.remove('hidden');
+                selectedProductsContainer.classList.add('hidden');
+            }
+
+            filterPanesBtn.classList.toggle('active', filters.panes);
+            filterPolarBtn.classList.toggle('active', filters.polar);
+            filterSelectedBtn.classList.toggle('active', filters.selected);
+            directOrderBtn.classList.toggle('active', filters.directOrder);
+
+            if(filters.directOrder) {
+                productList.classList.add('hidden');
+                // Si hay un término de búsqueda, muestra los resultados, si no, muestra las empresas
+                if (searchInput.value.trim()) {
+                    directOrderSearchResultsContainer.classList.remove('hidden');
+                    companyFiltersContainer.classList.add('hidden');
+                } else {
+                    directOrderSearchResultsContainer.classList.add('hidden');
+                    companyFiltersContainer.classList.remove('hidden');
+                }
+            } else {
+                companyFiltersContainer.classList.add('hidden');
+                directOrderSearchResultsContainer.classList.add('hidden');
+            }
+        }
+
+        function filterAndRenderProducts() {
+            // Si el filtro de 'seleccionados' está activo, no hacemos NADA MÁS.
+            // La función updateUI() ya se encarga de mostrar/ocultar los contenedores correctos.
+            if (filters.selected) {
+                updateUI();
+                return;
+            }
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            let baseProducts;
+
+            // Primero, determinamos la lista base de productos según el filtro activo
+            if (filters.panes) {
+                baseProducts = products.filter(product => product.name.includes('•'));
+            } else if (filters.polar) {
+                baseProducts = products.filter(product => product.name.endsWith('.'));
+            } else {
+                // Si no hay un filtro de categoría, la base son todos los productos
+                baseProducts = [...products];
+            }
+            
+            // Luego, aplicamos el término de búsqueda a la lista base
+            const filteredProducts = searchTerm
+                ? baseProducts.filter(product => product.name.toLowerCase().includes(searchTerm))
+                : baseProducts;
+            
+            productList.classList.remove('flex', 'flex-col', 'gap-4');
+            productList.classList.add('grid', 'sm:grid-cols-2', 'lg:grid-cols-3');
+            
+            renderProducts(filteredProducts);
+            updateUI(); // Se llama a updateUI al final para sincronizar el estado visual.
+        }
+        
+        function updateDisplay() {
+            calculatorDisplay.textContent = currentQuantity || '0';
+        }
+
+        function refreshCompanyProductViews() {
+            // Encuentra el botón de la empresa que está actualmente activo
+            const activeButton = companyFiltersContainer.querySelector('.company-list-item.active');
+            if (!activeButton) return; // Si no hay ninguno activo, no hace nada
+
+            const companyName = activeButton.dataset.company;
+            const productsContainer = companyFiltersContainer.querySelector(`[data-container-for="${companyName}"]`);
+            
+            const productNames = companyProductMapping[companyName] || [];
+            if (productNames.length > 0) {
+                const companyProducts = products.filter(p => productNames.includes(p.name));
+                
+                companyProducts.sort((a, b) => {
+                    const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                    const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                // Vuelve a generar el HTML para los productos de esa empresa, aplicando la clase 'selected' si es necesario
+                const productsHtml = companyProducts.map(item => {
+                    const isSelected = selectedProducts.some(p => p.id === item.id);
+                    const cardClass = isSelected ? 'product-card selected' : 'product-card';
+                    return `
+                        <div class="${cardClass} flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.name}">
+                            <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.id}. ${item.name}</h2>
+                        </div>
+                    `;
+                }).join('');
+                productsContainer.innerHTML = productsHtml;
+            } else {
+                productsContainer.innerHTML = '<p class="col-span-full text-center text-gray-500 text-lg">No hay productos para esta empresa.</p>';
+            }
+        }
+        
+        function renderDirectOrderSearchResults() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const companyContainer = document.getElementById('companyFiltersContainer');
+            const searchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
+
+            if (!searchTerm) {
+                companyContainer.classList.remove('hidden');
+                searchResultsContainer.classList.add('hidden');
+                searchResultsContainer.innerHTML = '';
+                companyContainer.querySelectorAll('.company-section').forEach(section => {
+                    section.classList.remove('hidden');
+                });
+                return;
+            }
+
+            companyContainer.classList.add('hidden');
+            searchResultsContainer.classList.remove('hidden');
+            searchResultsContainer.innerHTML = '';
+
+            const filteredResults = directOrderProducts.filter(item =>
+                item.name.toLowerCase().includes(searchTerm) || item.company.toLowerCase().includes(searchTerm)
+            );
+
+            filteredResults.sort((a, b) => {
+                const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                return nameA.localeCompare(nameB);
+            });
+
+            if (filteredResults.length > 0) {
+                const resultsHtml = filteredResults.map(item => {
+                    const isSelected = selectedProducts.some(p => p.id === item.id);
+                    const cardClass = isSelected ? 'product-card selected' : 'product-card';
+                    return `
+                        <div class="${cardClass} flex flex-col items-start w-full bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.name}">
+                            <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.name}</h2>
+                            <p class="text-xs text-purple-700 font-semibold mt-1">${item.company}</p>
+                        </div>
+                    `;
+                }).join('');
+                searchResultsContainer.innerHTML = resultsHtml;
+            } else {
+                searchResultsContainer.innerHTML = '<p class="col-span-full text-center text-gray-500 text-lg">No se encontraron productos o empresas.</p>';
+            }
+        }
+
+        function handleCalculatorClick(event) {
+            const value = event.target.dataset.value;
+            if (!value) return;
+
+            if (value === 'backspace') {
+                currentQuantity = currentQuantity.slice(0, -1);
+            } else if (value === 'confirm') {
+                if (currentQuantity !== '' && currentProduct) {
+                    const quantity = parseInt(currentQuantity, 10);
+                    const existingProductIndex = selectedProducts.findIndex(p => p.id === currentProduct.id);
+
+                    if (quantity === 0) {
+                        if (existingProductIndex !== -1) {
+                            selectedProducts.splice(existingProductIndex, 1);
+                        }
+                    } else {
+                        if (existingProductIndex !== -1) {
+                            selectedProducts[existingProductIndex].quantity = quantity;
+                        } else {
+                            selectedProducts.push({ id: currentProduct.id, name: currentProduct.name, quantity: quantity, unit: currentProduct.unit });
+                        }
+                    }
+                    
+                    hideModal(calculatorModal);
+                    currentQuantity = '';
+                    currentProduct = null;
+                    filterAndRenderProducts();
+                    refreshCompanyProductViews();
+                    if (filters.directOrder && searchInput.value) {
+                        renderDirectOrderSearchResults();
+                    }
+                }
+            } else {
+                if (currentQuantity.length < 9) {
+                    currentQuantity += value;
+                }
+            }
+            updateDisplay();
+        }
+
+        function exportToExcel() {
+            if (selectedProducts.length === 0) {
+                showMessage('No hay productos seleccionados para exportar.', '#fca5a5', '#7f1d1d');
+                return;
+            }
+
+            const today = new Date();
+            const day = String(today.getDate()).padStart(2, '0');
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const year = today.getFullYear();
+            const dateString = `FECHA: ${day}-${month}-${year}`;
+
+            // Crear una nueva hoja de cálculo
+            const ws = XLSX.utils.aoa_to_sheet([]);
+            
+            // Establecer el ancho de las columnas para que coincida con la nueva estructura
+            ws['!cols'] = [{ width: 52 }, { width: 23 }, { width: 23 }, { width: 23 }, { width: 15 }, { width: 15 }];
+
+            // Encabezados de información
+            let orderTitle = 'FERIA ESTE';
+            if (filters.polar) {
+                orderTitle = 'PEDIDO DE LA POLAR';
+            } else if (filters.panes) {
+                orderTitle = 'PEDIDO DE LA CAVA';
+            }
+            const responsablesString = responsables.filter(r => r).join('-');
+            const infoHeaders = [[dateString], ['RESPONSABLES: ' + responsablesString]];
+
+            // Escribir el título y los encabezados de información en la hoja
+            XLSX.utils.sheet_add_aoa(ws, [[orderTitle]], { origin: 'C1' });
+            XLSX.utils.sheet_add_aoa(ws, infoHeaders, { origin: 'A1' });
+            // Nuevos encabezados para las columnas según la imagen
+            XLSX.utils.sheet_add_aoa(ws, [['PRODUCTO', 'PEDIDO FERIA ESTE', 'PEDIDO FERIA CENTRO', 'PEDIDO FERIA RUIZ PINEDA', 'TOTAL', 'UNIDAD']], { origin: 'A3' });
+
+            // Escribir los datos de los productos ajustados a las nuevas columnas
+            const productData = selectedProducts.map(product => {
+                const quantityText = product.quantity;
+                return [
+                    product.name,
+                    quantityText,
+                    '', // PEDIDO FERIA CENTRO
+                    '', // PEDIDO FERIA RUIZ PINEDA
+                    '', // Placeholder para TOTAL en columna E
+                    product.unit.toUpperCase() // UNIDAD en columna F (en mayúsculas)
+                ];
+            });
+            
+            XLSX.utils.sheet_add_aoa(ws, productData, { origin: 'A4' });
+
+            // Añadir la fórmula de autosuma en la columna E para cada fila de producto
+            selectedProducts.forEach((product, index) => {
+                const rowIndex = 4 + index; // Los datos comienzan en la fila 4
+                const cellAddress = 'E' + rowIndex;
+                const formula = `SUM(B${rowIndex}:D${rowIndex})`;
+                ws[cellAddress] = { t: 'n', f: formula };
+            });
+
+            // Establecer la altura de la segunda fila (índice 1) a 32px (aprox 24 puntos)
+            if (!ws['!rows']) ws['!rows'] = [];
+            ws['!rows'][1] = { hpt: 24 };
+
+            // Combinar las celdas desde C1 hasta F1 para el título
+            if (!ws['!merges']) ws['!merges'] = [];
+            ws['!merges'].push({ s: { r: 0, c: 2 }, e: { r: 0, c: 5 } }); // Combina C1, D1, E1, F1
+
+            const wb = XLSX.utils.book_new();
+            
+            let sheetName = "PEDIDO DE FERIA ESTE";
+            if (filters.polar) {
+                sheetName = "Pedido De La Polar";
+            } else if (filters.panes) {
+                sheetName = "Pedido De La Cava";
+            }
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            
+            let fileName = `Pedido de Feria del Este ${day}-${month}-${year}.xlsx`;
+            if (filters.polar) {
+                fileName = `Pedido De La Polar Feria del Este ${day}-${month}-${year}.xlsx`;
+            } else if (filters.panes) {
+                fileName = `Pedido De La Cava Feria Del Este ${day}-${month}-${year}.xlsx`;
+            }
+
+            XLSX.writeFile(wb, fileName);
+        }
+
+        // --- FUNCIÓN MODIFICADA ---
+        function exportDirectOrderToExcel() {
+            if (selectedProducts.length === 0) {
+                showMessage('No hay productos seleccionados para exportar.', '#fca5a5', '#7f1d1d');
+                return;
+            }
+
+            const today = new Date();
+            const day = String(today.getDate()).padStart(2, '0');
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const year = today.getFullYear();
+            const dateStringForHeader = `${day}/${month}/${year}`;
+            const dateStringForFile = `${day}-${month}-${year}`;
+
+            const data = [];
+
+            const responsablesString = responsables.filter(r => r).join('-');
+            // Fila 1: Fecha en A1, B1 vacía, Título en C1
+            data.push([`FECHA:${dateStringForHeader}`, null, 'PEDIDO DIRECTO FERIA ESTE']);
+            // Fila 2: Responsable en A2
+            data.push(['RESPONSABLE: ' + responsablesString]);
+            // Fila 3: Encabezados de columna
+            data.push(['PRODUCTO', 'FERIA DEL ESTE', 'FERIA DEL CENTRO', 'FERIA DE RUIZ PINEDA', 'TOTAL', 'UNIDAD']);
+
+            const companyNames = Object.keys(companyProductMapping).sort();
+
+            companyNames.forEach(company => {
+                const productNames = companyProductMapping[company]; // Ahora es un array de nombres
+                
+                if (productNames.length > 0) {
+                    data.push([company]);
+
+                    productNames.forEach(name => { // Iterar sobre los nombres de los productos
+                        const product = products.find(p => p.name === name); // Buscar el producto por su nombre
+                        if (product) {
+                            const selectedProd = selectedProducts.find(sp => sp.id === product.id);
+                            // MODIFICACIÓN: Mostrar solo el número de la cantidad, sin la unidad.
+                            let quantityWithUnit = '';
+                            if (selectedProd) {
+                                quantityWithUnit = selectedProd.quantity;
+                            }
+                            
+                            // Añadir datos del producto, dejando espacio para otros pedidos y el total
+                            data.push([
+                                `${product.id}. ${product.name}`,
+                                quantityWithUnit,
+                                '', // FERIA DEL CENTRO
+                                '', // FERIA DE RUIZ PINEDA
+                                '',  // Placeholder para la fórmula de TOTAL
+                                product.unit.toUpperCase() // UNIDAD en columna F (en mayúsculas)
+                            ]);
+                        }
+                    });
+                }
+            });
+
+            // Crear la hoja de cálculo a partir de los datos
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Iterar sobre los datos para añadir la fórmula de autosuma y los estilos de empresa
+            let excelRowIndex = 1; // Las filas en Excel son base 1
+            data.forEach(rowData => {
+                // Identificar una fila de producto si la primera celda comienza con un número (el ID)
+                if (typeof rowData[0] === 'string' && /^\d+\./.test(rowData[0])) {
+                    const cellAddress = 'E' + excelRowIndex;
+                    const formula = `SUM(B${excelRowIndex}:D${excelRowIndex})`;
+                    ws[cellAddress] = { t: 'n', f: formula }; // Añadir la fórmula a la celda
+                }
+                excelRowIndex++;
+            });
+
+            // Establecer la altura de la segunda fila (índice 1) a 32px (aprox 24 puntos)
+            if (!ws['!rows']) ws['!rows'] = [];
+            ws['!rows'][1] = { hpt: 24 };
+
+            // Establecer el ancho de las columnas
+            ws['!cols'] = [{ width: 60 }, { width: 23 }, { width: 23 }, { width: 23 }, { width: 15 }, { width: 15 }];
+            
+            // Combinar las celdas desde C1 hasta F1 para el título "PEDIDO DIRECTO"
+            if (!ws['!merges']) ws['!merges'] = [];
+            ws['!merges'].push({ s: { r: 0, c: 2 }, e: { r: 0, c: 5 } });
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "PEDIDO DIRECTO FERIA ESTE");
+            
+            XLSX.writeFile(wb, `PEDIDO_DIRECTO_FERIA_ESTE_${dateStringForFile}.xlsx`);
+            showMessage('Pedido Directo exportado con éxito.', '#86efac', '#166534');
+        }
+        
+        async function generateOrderImage() {
+            // Esta función genera la imagen del pedido y devuelve la URL de datos base64.
+            // Devuelve nulo si no hay productos seleccionados.
+            if (selectedProducts.length === 0) {
+                showMessage('No hay productos seleccionados para exportar.', '#fca5a5', '#7f1d1d');
+                return null;
+            }
+            
+            const contentToCapture = document.createElement('div');
+            // Estilos mejorados para la captura de la imagen
+            contentToCapture.classList.add('p-4', 'bg-white', 'w-full');
+            contentToCapture.style.width = '350px'; // Ancho fijo para mejorar la visualización en móvil
+            
+            const today = new Date();
+            const day = String(today.getDate()).padStart(2, '0');
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const year = today.getFullYear();
+            const dateString = `FECHA: ${day}-${month}-${year}`;
+            
+            const responsablesString = responsables.filter(r => r).join(' - ');
+            
+            contentToCapture.innerHTML = `
+                <div class="text-center font-bold text-xl mb-3 text-gray-800">
+                    Pedido de Viveres
+                </div>
+                <div class="text-xs text-gray-600 mb-1 text-center">
+                    <span>${dateString}</span> | <span>FERIA ESTE</span>
+                </div>
+                ${responsablesString ? `<div class="text-xs text-gray-600 mb-3 text-center"><span class="font-bold">RESPONSABLES:</span> ${responsablesString}</div>` : '<div class="mb-2"></div>'}
+                <div id="captureList" class="flex flex-col gap-2"></div>
+            `;
+            
+            const captureList = contentToCapture.querySelector('#captureList');
+            
+            // Crear una copia ordenada de los productos para que la imagen sea consistente con la vista
+            const sortedProducts = [...selectedProducts].sort((a, b) => {
+                const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                return nameA.localeCompare(nameB);
+            });
+            
+            sortedProducts.forEach(product => {
+                const item = document.createElement('div');
+                item.classList.add('bg-blue-50', 'p-3', 'rounded-lg', 'flex', 'justify-between', 'items-center', 'text-sm');
+                item.innerHTML = `
+                    <span class="font-medium text-blue-800">${product.name}</span>
+                    <span class="font-bold text-blue-900">${product.quantity} ${product.unit}</span>
+                `;
+                captureList.appendChild(item);
+            });
+            
+            document.body.appendChild(contentToCapture);
+            
+            const canvas = await html2canvas(contentToCapture, {
+                scale: 2,
+                backgroundColor: '#ffffff'
+            });
+
+            document.body.removeChild(contentToCapture);
+            return canvas.toDataURL('image/png');
+        }
+
+        async function shareToWhatsApp() {
+            const image = await generateOrderImage();
+            if (!image) return;
+
+            try {
+                // Convertir base64 a blob
+                const response = await fetch(image);
+                const blob = await response.blob();
+                const file = new File([blob], 'pedido.png', { type: blob.type });
+
+                // Comprobar si la API de Web Share es compatible
+                if (navigator.share && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Pedido de Viveres',
+                        text: 'Aquí está el pedido de viveres.',
+                    });
+                    showMessage('Pedido compartido con éxito.', '#86efac', '#166534');
+                } else {
+                    showMessage('La función de compartir no es compatible con este navegador. Por favor, descarga la imagen y compártela manualmente.', '#fca5a5', '#7f1d1d');
+                }
+            } catch (error) {
+                console.error('Error al compartir:', error);
+                showMessage('Ocurrió un error al intentar compartir. Por favor, inténtalo de nuevo.', '#fca5a5', '#7f1d1d');
+            }
+        }
+        
+        async function exportToImage() {
+            const image = await generateOrderImage();
+            if (!image) return; // Si la generación de imagen falla, no hacer nada.
+            
+            // Mostrar el modal de vista previa en lugar de descargar directamente
+            previewImage.src = image;
+            showModal(previewModal);
+
+            const downloadImage = () => {
+                const link = document.createElement('a');
+                link.href = image;
+                const today = new Date();
+                const day = String(today.getDate()).padStart(2, '0');
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const year = today.getFullYear();
+                const dateString = `${day}-${month}-${year}`;
+                link.download = `Pedido_de_Viveres_${dateString}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                hideModal(previewModal);
+                showMessage('Imagen descargada con éxito.', '#86efac', '#166534');
+            };
+
+            downloadPreviewBtn.onclick = downloadImage;
+            downloadPreviewIconBtn.onclick = downloadImage;
+        }
+
+        function showMessage(message, bgColor, textColor) {
+            const messageBox = document.createElement('div');
+            messageBox.textContent = message;
+            messageBox.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: ${bgColor};
+                color: ${textColor};
+                padding: 1.5rem;
+                border-radius: 0.75rem;
+                box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+                z-index: 2000;
+                font-weight: bold;
+                text-align: center;
+            `;
+            document.body.appendChild(messageBox);
+            setTimeout(() => {
+                document.body.removeChild(messageBox);
+            }, 3000);
+        }
+
+        document.getElementById('mainContainer').addEventListener('click', (event) => {
+            const productCard = event.target.closest('.product-card');
+            if (productCard) {
+                const productId = parseInt(productCard.dataset.id, 10);
+                const productName = productCard.dataset.name;
+                
+                const productWithUnit = products.find(p => p.id === productId);
+                
+                currentProduct = { id: productId, name: productName, unit: productWithUnit.unit };
+                
+                modalProductName.textContent = `Producto: ${productName}`;
+                
+                const existingProduct = selectedProducts.find(p => p.id === productId);
+                if (existingProduct) {
+                    currentQuantity = String(existingProduct.quantity);
+                } else {
+                    currentQuantity = '';
+                }
+
+                updateDisplay();
+                
+                showModal(calculatorModal);
+            }
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            hideModal(calculatorModal);
+            currentQuantity = '';
+            currentProduct = null;
+        });
+        
+        calculatorModal.addEventListener('click', (event) => {
+            if (event.target.id === 'calculatorModal') {
+                hideModal(calculatorModal);
+                currentQuantity = '';
+                currentProduct = null;
+            }
+        });
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if (filters.directOrder) {
+                    renderDirectOrderSearchResults();
+                } else if (filters.selected) {
+                    const searchTerm = searchInput.value.toLowerCase();
+                    const filteredSelected = selectedProducts.filter(product => 
+                        product.name.toLowerCase().includes(searchTerm)
+                    );
+                    renderSelectedProducts(filteredSelected);
+                } else {
+                    filterAndRenderProducts();
+                }
+            }, 300);
+        });
+        
+        filterSelectedBtn.addEventListener('click', () => {
+            clearTimeout(searchTimeout);
+            searchInput.value = '';
+            filters.selected = true;
+            filters.panes = false;
+            filters.polar = false;
+            filters.directOrder = false;
+            
+            filterAndRenderProducts();
+        });
+        
+        function backToList() {
+            clearTimeout(searchTimeout);
+            searchInput.value = '';
+            filters.selected = false;
+            filters.panes = false;
+            filters.polar = false;
+            filters.directOrder = false;
+            const searchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
+            searchResultsContainer.classList.add('hidden');
+            searchResultsContainer.innerHTML = '';
+            filterAndRenderProducts();
+        }
+
+        mainCloseBtn.addEventListener('click', backToList);
+
+        filterPanesBtn.addEventListener('click', () => {
+            clearTimeout(searchTimeout);
+            searchInput.value = '';
+            filters.selected = false;
+            filters.panes = true;
+            filters.polar = false;
+            filters.directOrder = false;
+            
+            filterAndRenderProducts();
+        });
+        
+        filterPolarBtn.addEventListener('click', () => {
+            clearTimeout(searchTimeout);
+            searchInput.value = '';
+            filters.selected = false;
+            filters.panes = false;
+            filters.polar = true;
+            filters.directOrder = false;
+            
+            filterAndRenderProducts();
+        });
+        
+        directOrderBtn.addEventListener('click', () => {
+            clearTimeout(searchTimeout);
+            searchInput.value = '';
+            
+            filters.selected = false;
+            filters.panes = false;
+            filters.polar = false;
+            filters.directOrder = !filters.directOrder;
+
+            const searchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
+            searchResultsContainer.classList.add('hidden');
+            searchResultsContainer.innerHTML = '';
+
+            if (!filters.directOrder) {
+                document.querySelectorAll('.products-for-company').forEach(container => container.classList.add('hidden'));
+                document.querySelectorAll('.company-list-item.active').forEach(btn => btn.classList.remove('active'));
+            }
+
+            updateUI();
+        });
+
+        function renderCompanyList() {
+            companyFiltersContainer.innerHTML = '';
+            const companyNames = Object.keys(companyProductMapping).sort();
+            const html = companyNames.map(company => `
+                <div class="company-section w-full">
+                    <button class="company-list-item" data-company="${company}">${company}</button>
+                    <div class="products-for-company grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4 hidden" data-container-for="${company}">
+                        <!-- Products for ${company} will be rendered here -->
+                    </div>
+                </div>
+            `).join('');
+            companyFiltersContainer.innerHTML = html;
+        }
+
+        companyFiltersContainer.addEventListener('click', (event) => {
+            const companyButton = event.target.closest('.company-list-item');
+            if (!companyButton) return;
+
+            const companyName = companyButton.dataset.company;
+            const productsContainer = companyFiltersContainer.querySelector(`[data-container-for="${companyName}"]`);
+            
+            const isAlreadyOpen = companyButton.classList.contains('active');
+
+            // Close any currently open company section
+            companyFiltersContainer.querySelectorAll('.company-list-item.active').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            companyFiltersContainer.querySelectorAll('.products-for-company:not(.hidden)').forEach(container => {
+                container.classList.add('hidden');
+            });
+
+            if (isAlreadyOpen) {
+                // If it was already open, we just close it and we are done.
+                return;
+            }
+
+            // Open the clicked one
+            companyButton.classList.add('active');
+            productsContainer.classList.remove('hidden');
+
+            // Populate with products if it's the first time
+            if (productsContainer.innerHTML.trim().startsWith('<!--')) {
+                const productNames = companyProductMapping[companyName] || []; // Ahora es un array de nombres
+                if (productNames.length > 0) {
+                    const companyProducts = products.filter(p => productNames.includes(p.name)); // Filtrar por nombre
+                    
+                    companyProducts.sort((a, b) => {
+                        const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                        const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+                        return nameA.localeCompare(nameB);
+                    });
+
+                    const productsHtml = companyProducts.map(item => {
+                        const isSelected = selectedProducts.some(p => p.id === item.id);
+                        const cardClass = isSelected ? 'product-card selected' : 'product-card';
+                        return `
+                            <div class="${cardClass} flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm" data-id="${item.id}" data-name="${item.name}">
+                                <h2 class="product-name text-sm sm:text-lg font-medium text-gray-800">${item.id}. ${item.name}</h2>
+                            </div>
+                        `;
+                    }).join('');
+                    productsContainer.innerHTML = productsHtml;
+                } else {
+                    productsContainer.innerHTML = '<p class="col-span-full text-center text-gray-500 text-lg">No hay productos para esta empresa.</p>';
+                }
+            }
+        });
+
+        document.querySelector('.calculator-buttons-grid').addEventListener('click', handleCalculatorClick);
+        
+        exportExcelBtn.addEventListener('click', exportToExcel);
+        
+        downloadImageBtn.addEventListener('click', exportToImage);
+
+        shareBtn.addEventListener('click', shareToWhatsApp);
+
+        exportDirectOrderBtn.addEventListener('click', exportDirectOrderToExcel);
+
+        window.addEventListener('beforeunload', (event) => {
+            if (selectedProducts.length > 0) {
+                const confirmationMessage = 'Tienes productos seleccionados. ¿Estás seguro de que quieres salir?';
+                event.returnValue = confirmationMessage;
+                return confirmationMessage;
+            }
+        });
+
+        cancelExitBtn.addEventListener('click', () => {
+            hideModal(warningModal);
+        });
+
+        confirmExitBtn.addEventListener('click', () => {
+            if (warningTitle.textContent === 'Confirmar Eliminación') {
+                const index = selectedProducts.findIndex(p => p.id === productIdToDelete);
+                if (index !== -1) {
+                    selectedProducts.splice(index, 1);
+                }
+                renderSelectedProducts();
+                filterAndRenderProducts(); // This will re-render the main list view correctly
+                refreshCompanyProductViews(); // Actualizar la vista de la empresa si está abierta
+                hideModal(warningModal);
+            } else {
+                window.history.back();
+            }
+        });
+
+
+        // Eventos para el nuevo botón y modal de ayuda
+        helpBtn.addEventListener('click', () => {
+            showModal(helpModal);
+        });
+
+        closeHelpModalBtn.addEventListener('click', () => {
+            hideModal(helpModal);
+        });
+
+        helpModal.addEventListener('click', (event) => {
+            if (event.target.id === 'helpModal') {
+                hideModal(helpModal);
+            }
+        });
+
+        // Eventos para el modal de responsables
+        addResponsablesBtn.addEventListener('click', () => {
+            responsable1Input.value = responsables[0];
+            responsable2Input.value = responsables[1];
+            showModal(responsablesModal);
+        });
+
+        cancelResponsablesBtn.addEventListener('click', () => {
+            hideModal(responsablesModal);
+        });
+
+        confirmResponsablesBtn.addEventListener('click', () => {
+            responsables[0] = responsable1Input.value.trim();
+            responsables[1] = responsable2Input.value.trim();
+            hideModal(responsablesModal);
+            showMessage('Responsables actualizados con éxito.', '#86efac', '#166534');
+
+            // --- CÓDIGO MODIFICADO PARA LA ANIMACIÓN DE FILTROS ---
+            if (responsables[0] || responsables[1]) {
+                const filterItems = [
+                    document.getElementById('directOrderBtn'),
+                    document.getElementById('filterPolarBtn'),
+                    document.getElementById('filterPanesBtn'),
+                    document.getElementById('filterSelectedBtn')
+                ];
+                const animationDelay = 150;
+
+                // Asegurarse de que los items están reseteados antes de la animación
+                filterItems.forEach(item => item.classList.remove('show'));
+
+                // Mostrar el contenedor
+                filterButtonsContainer.classList.remove('hidden');
+                
+                // Animar cada item para que aparezca
+                filterItems.forEach((item, index) => {
+                    void item.offsetWidth; // Forzar reflow para reiniciar la animación
+                    setTimeout(() => {
+                        item.classList.add('show');
+                    }, (index + 1) * animationDelay);
+                });
+            } else {
+                // Si no hay responsables, ocultar el contenedor y resetear la animación
+                filterButtonsContainer.classList.add('hidden');
+                document.querySelectorAll('.filter-item').forEach(item => item.classList.remove('show'));
+            }
+        });
+        
+        responsablesModal.addEventListener('click', (event) => {
+            if (event.target.id === 'responsablesModal') {
+                hideModal(responsablesModal);
+            }
+        });
+
+        // Los eventos del modal de compartir han sido eliminados
+
+        // Evento para cerrar el modal de vista previa
+        closePreviewBtn.addEventListener('click', () => {
+            hideModal(previewModal);
+        });
+
+        previewModal.addEventListener('click', (event) => {
+            if (event.target.id === 'previewModal') {
+                hideModal(previewModal);
+            }
+        });
+
+        function hideOptionsMenu() {
+            const menuItems = exportButtonsContainer.querySelectorAll('.menu-item');
+            if (exportButtonsContainer.classList.contains('hidden')) return;
+
+            const animationDelay = 150;
+            const totalItems = menuItems.length;
+
+            [...menuItems].reverse().forEach((item, index) => {
+                setTimeout(() => {
+                    item.classList.remove('show');
+                }, index * animationDelay);
+            });
+
+            const cssTransitionDuration = 500;
+            const totalDuration = ((totalItems - 1) * animationDelay) + cssTransitionDuration;
+            setTimeout(() => {
+                exportButtonsContainer.classList.add('hidden');
+            }, totalDuration);
+        }
+
+        // --- CÓDIGO MODIFICADO PARA EL BOTÓN DE OPCIONES ---
+        optionsBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const menuItems = exportButtonsContainer.querySelectorAll('.menu-item');
+            const isHidden = exportButtonsContainer.classList.contains('hidden');
+            const animationDelay = 150;
+            
+            if (menuTimeoutId) {
+                clearTimeout(menuTimeoutId);
+            }
+
+            if (isHidden) { // Si está oculto, lo mostramos
+                exportButtonsContainer.classList.remove('hidden');
+                menuItems.forEach((item, index) => {
+                    item.classList.remove('show'); // Reiniciar para la animación
+                    void item.offsetWidth;
+                    setTimeout(() => {
+                        item.classList.add('show');
+                    }, (index + 1) * animationDelay);
+                });
+                menuTimeoutId = setTimeout(hideOptionsMenu, 10000); // Ocultar después de 10 segundos
+            } else { // Si está visible, lo ocultamos
+                hideOptionsMenu();
+            }
+        });
+
+        // El evento para cerrar los botones al hacer clic fuera ha sido eliminado
+
+        // --- Dark Mode Logic ---
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const htmlEl = document.documentElement;
+
+        const setTheme = (theme) => {
+            if (theme === 'dark') {
+                htmlEl.classList.add('dark');
+                darkModeToggle.checked = true;
+            } else {
+                htmlEl.classList.remove('dark');
+                darkModeToggle.checked = false;
+            }
+        };
+
+        darkModeToggle.addEventListener('change', () => {
+            const newTheme = darkModeToggle.checked ? 'dark' : 'light';
+            localStorage.setItem('theme', newTheme);
+            setTheme(newTheme);
+        });
+
+        // Initialize theme on load
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            setTheme(savedTheme);
+        } else {
+            // Default to light, or you can check system preference
+            setTheme('light'); 
+        }
+
+        // Inicializar la interfaz y los productos
+        renderCompanyList();
+        filterAndRenderProducts();
+    </script>
+</body>
+</html>
+
+
