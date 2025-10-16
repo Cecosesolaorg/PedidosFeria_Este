@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Feria del Este coordinacion Viveres</title>
+    <title>PEDIDO CORDINACION</title>
     <!-- Incluir Tailwind CSS desde CDN para un diseño moderno y adaptable -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Configuración para habilitar el modo oscuro de Tailwind -->
@@ -699,7 +699,7 @@
             { id: 123, name: 'HARINA DE TRIGO MARY 900 GR "55bultos"' },
             { id: 124, name: 'HARINA DOÑA EMILIA 1 KILO "365bultos"' },
             { id: 125, name: 'HARINA KALY PREMIUN ( NUEVA )"110bultos"' },
-            { id: 126, name: 'HARINA MASIAS 900 GMS "' },
+            { id: 126, name: 'HARINA MASIAS 900 GMS ".' },
             { id: 127, name: 'HARINA P.A.N AMARILLA "".' },
             { id: 128, name: 'HARINA P.A.N MEZCLA 1 KILO "120bultos".' },
             { id: 129, name: 'HARINA P.A.N NORMAL "700bultos".' },
@@ -920,7 +920,7 @@
             { id: 344, name: 'YOGURT GUARALAC 400ML"".' },
             { id: 344, name: 'TOALLAS ALIVE DIURNA"".' },
             { id: 344, name: 'TOALLAS ALIVE NOCTURNA "".' },
-           { id: 344, name: 'MEGA BOL""' },
+            { id: 344, name: 'MEGA BOL""' },
         ].map(product => {
             // Extraer la unidad de medida del nombre del producto
             const match = product.name.match(/"(.*?)"|""/);
@@ -1165,6 +1165,8 @@
             const searchContainer = document.getElementById('searchContainer');
             const directOrderSearchResultsContainer = document.getElementById('directOrderSearchResultsContainer');
             
+            // La visibilidad de los botones de exportación ahora se gestiona en el event listener del botón de opciones.
+
             // Oculta los otros botones de filtro cuando uno está activo
             filterSelectedBtn.classList.toggle('hidden', isAnyFilterActive && !filters.selected);
             filterPanesBtn.classList.toggle('hidden', isAnyFilterActive && !filters.panes);
@@ -1382,8 +1384,36 @@
         }
 
         function exportToExcel() {
-            if (selectedProducts.length === 0) {
-                showMessage('No hay productos seleccionados para exportar.', '#fca5a5', '#7f1d1d');
+            const searchTerm = searchInput.value.toLowerCase();
+            let productsToExport;
+            let isExportingAll = false; // Flag to know if we are exporting a full list or just selected items.
+
+            // Determine the base list of products for export
+            if (filters.panes) {
+                productsToExport = products.filter(product => product.name.includes('•'));
+                isExportingAll = true;
+            } else if (filters.polar) {
+                productsToExport = products.filter(product => product.name.endsWith('.'));
+                isExportingAll = true;
+            } else if (filters.selected) {
+                // If viewing selected products, only export those.
+                productsToExport = [...selectedProducts];
+            } else {
+                // Default view (all products)
+                productsToExport = [...products];
+                isExportingAll = true;
+            }
+
+            // Apply search term to the list if there is one
+            if (searchTerm) {
+                productsToExport = productsToExport.filter(product => product.name.toLowerCase().includes(searchTerm));
+            }
+            
+            if (productsToExport.length === 0) {
+                const message = isExportingAll ? 
+                    'No hay productos que coincidan con los filtros actuales para exportar.' :
+                    'No hay productos seleccionados para exportar.';
+                showMessage(message, '#fca5a5', '#7f1d1d');
                 return;
             }
 
@@ -1393,75 +1423,81 @@
             const year = today.getFullYear();
             const dateString = `FECHA: ${day}-${month}-${year}`;
 
-            // Crear una nueva hoja de cálculo
             const ws = XLSX.utils.aoa_to_sheet([]);
-            
-            // Establecer el ancho de las columnas para que coincida con la nueva estructura
             ws['!cols'] = [{ width: 52 }, { width: 23 }, { width: 23 }, { width: 23 }, { width: 15 }, { width: 15 }];
 
-            // Encabezados de información
             let orderTitle = 'FERIA ESTE';
             if (filters.polar) {
                 orderTitle = 'PEDIDO DE LA POLAR';
             } else if (filters.panes) {
                 orderTitle = 'PEDIDO DE LA CAVA';
+            } else if (filters.selected) {
+                orderTitle = 'PRODUCTOS SELECCIONADOS';
             }
             const responsablesString = responsables.filter(r => r).join('-');
             const infoHeaders = [[dateString], ['RESPONSABLES: ' + responsablesString]];
 
-            // Escribir el título y los encabezados de información en la hoja
             XLSX.utils.sheet_add_aoa(ws, [[orderTitle]], { origin: 'C1' });
             XLSX.utils.sheet_add_aoa(ws, infoHeaders, { origin: 'A1' });
-            // Nuevos encabezados para las columnas según la imagen
             XLSX.utils.sheet_add_aoa(ws, [['PRODUCTO', 'PEDIDO FERIA ESTE', 'PEDIDO FERIA CENTRO', 'PEDIDO FERIA RUIZ PINEDA', 'TOTAL', 'UNIDAD']], { origin: 'A3' });
 
-            // Escribir los datos de los productos ajustados a las nuevas columnas
-            const productData = selectedProducts.map(product => {
-                const quantityText = product.quantity;
+            const productData = productsToExport.map(product => {
+                let quantityText = '';
+                const productUnit = product.unit || (products.find(p => p.id === product.id) || {}).unit || '';
+                
+                // MODIFICACIÓN: Limpiar el nombre del producto para la exportación
+                const productNameForExport = product.name.replace(/"(.*?)"/g, (match, group1) => {
+                    if (!group1) return '""'; // Maneja comillas vacías como ""
+                    const unitText = group1.replace(/[\d/.*¿?¿¡]+/g, '').trim().toUpperCase();
+                    return `"${unitText}"`;
+                });
+
+                if (isExportingAll) {
+                    const selectedProd = selectedProducts.find(sp => sp.id === product.id);
+                    quantityText = selectedProd ? selectedProd.quantity : '';
+                } else {
+                    quantityText = product.quantity;
+                }
+                
                 return [
-                    product.name,
+                    productNameForExport,
                     quantityText,
-                    '', // PEDIDO FERIA CENTRO
-                    '', // PEDIDO FERIA RUIZ PINEDA
-                    '', // Placeholder para TOTAL en columna E
-                    product.unit.toUpperCase() // UNIDAD en columna F (en mayúsculas)
+                    '', 
+                    '', 
+                    '', 
+                    productUnit.toUpperCase()
                 ];
             });
             
             XLSX.utils.sheet_add_aoa(ws, productData, { origin: 'A4' });
 
-            // Añadir la fórmula de autosuma en la columna E para cada fila de producto
-            selectedProducts.forEach((product, index) => {
-                const rowIndex = 4 + index; // Los datos comienzan en la fila 4
+            productsToExport.forEach((product, index) => {
+                const rowIndex = 4 + index;
                 const cellAddress = 'E' + rowIndex;
                 const formula = `SUM(B${rowIndex}:D${rowIndex})`;
                 ws[cellAddress] = { t: 'n', f: formula };
             });
 
-            // Establecer la altura de la segunda fila (índice 1) a 32px (aprox 24 puntos)
             if (!ws['!rows']) ws['!rows'] = [];
             ws['!rows'][1] = { hpt: 24 };
 
-            // Combinar las celdas desde C1 hasta F1 para el título
             if (!ws['!merges']) ws['!merges'] = [];
-            ws['!merges'].push({ s: { r: 0, c: 2 }, e: { r: 0, c: 5 } }); // Combina C1, D1, E1, F1
+            ws['!merges'].push({ s: { r: 0, c: 2 }, e: { r: 0, c: 5 } });
 
             const wb = XLSX.utils.book_new();
             
             let sheetName = "PEDIDO DE FERIA ESTE";
-            if (filters.polar) {
-                sheetName = "Pedido De La Polar";
-            } else if (filters.panes) {
-                sheetName = "Pedido De La Cava";
-            }
+            if (filters.polar) sheetName = "Pedido De La Polar";
+            else if (filters.panes) sheetName = "Pedido De La Cava";
+            else if (filters.selected) sheetName = "Productos Seleccionados";
+
             XLSX.utils.book_append_sheet(wb, ws, sheetName);
             
             let fileName = `Pedido de Feria del Este ${day}-${month}-${year}.xlsx`;
-            if (filters.polar) {
-                fileName = `Pedido De La Polar Feria del Este ${day}-${month}-${year}.xlsx`;
-            } else if (filters.panes) {
-                fileName = `Pedido De La Cava Feria Del Este ${day}-${month}-${year}.xlsx`;
-            }
+            if (filters.polar) fileName = `Pedido De La Polar Feria del Este ${day}-${month}-${year}.xlsx`;
+            else if (filters.panes) fileName = `Pedido De La Cava Feria Del Este ${day}-${month}-${year}.xlsx`;
+            else if (filters.selected) fileName = `Productos Seleccionados Feria Del Este ${day}-${month}-${year}.xlsx`;
+
 
             XLSX.writeFile(wb, fileName);
         }
@@ -1502,15 +1538,20 @@
                         const product = products.find(p => p.name === name); // Buscar el producto por su nombre
                         if (product) {
                             const selectedProd = selectedProducts.find(sp => sp.id === product.id);
-                            // MODIFICACIÓN: Mostrar solo el número de la cantidad, sin la unidad.
                             let quantityWithUnit = '';
                             if (selectedProd) {
                                 quantityWithUnit = selectedProd.quantity;
                             }
                             
-                            // Añadir datos del producto, dejando espacio para otros pedidos y el total
+                            // MODIFICACIÓN: Limpiar el nombre del producto para la exportación
+                            const productNameForExport = product.name.replace(/"(.*?)"/g, (match, group1) => {
+                                if (!group1) return '""'; // Maneja comillas vacías como ""
+                                const unitText = group1.replace(/[\d/.*¿?¿¡]+/g, '').trim().toUpperCase();
+                                return `"${unitText}"`;
+                            });
+                            
                             data.push([
-                                `${product.id}. ${product.name}`,
+                                `${product.id}. ${productNameForExport}`,
                                 quantityWithUnit,
                                 '', // FERIA DEL CENTRO
                                 '', // FERIA DE RUIZ PINEDA
@@ -2008,13 +2049,16 @@
         });
 
         function hideOptionsMenu() {
-            const menuItems = exportButtonsContainer.querySelectorAll('.menu-item');
             if (exportButtonsContainer.classList.contains('hidden')) return;
 
             const animationDelay = 150;
-            const totalItems = menuItems.length;
+            // Seleccionar solo los items visibles para la animación de salida
+            const visibleMenuItems = Array.from(exportButtonsContainer.querySelectorAll('.menu-item')).filter(
+                item => !item.classList.contains('hidden')
+            );
+            const totalItems = visibleMenuItems.length;
 
-            [...menuItems].reverse().forEach((item, index) => {
+            [...visibleMenuItems].reverse().forEach((item, index) => {
                 setTimeout(() => {
                     item.classList.remove('show');
                 }, index * animationDelay);
@@ -2027,10 +2071,8 @@
             }, totalDuration);
         }
 
-        // --- CÓDIGO MODIFICADO PARA EL BOTÓN DE OPCIONES ---
         optionsBtn.addEventListener('click', (event) => {
             event.stopPropagation();
-            const menuItems = exportButtonsContainer.querySelectorAll('.menu-item');
             const isHidden = exportButtonsContainer.classList.contains('hidden');
             const animationDelay = 150;
             
@@ -2039,14 +2081,39 @@
             }
 
             if (isHidden) { // Si está oculto, lo mostramos
+                const exportExcelBtn = document.getElementById('exportExcelBtn');
+                const exportDirectOrderBtn = document.getElementById('exportDirectOrderBtn');
+                const downloadImageBtn = document.getElementById('downloadImageBtn');
+                const shareBtn = document.getElementById('shareBtn');
+
+                // Lógica para mostrar/ocultar botones según el filtro
+                if (filters.directOrder) {
+                    exportExcelBtn.classList.add('hidden');
+                    exportDirectOrderBtn.classList.remove('hidden');
+                    downloadImageBtn.classList.remove('hidden');
+                    shareBtn.classList.remove('hidden');
+                } else {
+                    exportExcelBtn.classList.remove('hidden');
+                    exportDirectOrderBtn.classList.add('hidden');
+                    downloadImageBtn.classList.remove('hidden');
+                    shareBtn.classList.remove('hidden');
+                }
+
                 exportButtonsContainer.classList.remove('hidden');
-                menuItems.forEach((item, index) => {
+
+                // Animar solo los botones que no están ocultos
+                const menuItemsToShow = Array.from(exportButtonsContainer.querySelectorAll('.menu-item')).filter(
+                    item => !item.classList.contains('hidden')
+                );
+
+                menuItemsToShow.forEach((item, index) => {
                     item.classList.remove('show'); // Reiniciar para la animación
-                    void item.offsetWidth;
+                    void item.offsetWidth; // Forzar reflow
                     setTimeout(() => {
                         item.classList.add('show');
                     }, (index + 1) * animationDelay);
                 });
+
                 menuTimeoutId = setTimeout(hideOptionsMenu, 10000); // Ocultar después de 10 segundos
             } else { // Si está visible, lo ocultamos
                 hideOptionsMenu();
@@ -2090,5 +2157,7 @@
     </script>
 </body>
 </html>
+
+
 
 
