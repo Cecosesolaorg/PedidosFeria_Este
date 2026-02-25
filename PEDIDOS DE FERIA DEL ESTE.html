@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Buscador de Productos con Vista Previa</title>
+    <!-- Incluir Tailwind CSS desde CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Incluir la librería SheetJS para exportar a Excel -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- Incluir la librería jspdf para exportar a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.js"></script>
+    <!-- Incluir la librería html2canvas para convertir HTML a imagen -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Estilos CSS externos -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="p-2 md:p-4">
+    <div id="mainContainer"
+        class="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 md:p-8 relative">
+        <!-- Título principal -->
+        <h1 class="text-3xl md:text-4xl font-bold text-center mb-6 text-gray-800 dark:text-gray-100">
+            PEDIDO DE<br>FERIA ESTE
+        </h1>
+        <!-- Botón de opciones -->
+        <button id="optionsBtn"
+            class="absolute top-4 left-4 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors z-20 p-1 rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+        <!-- Botón de ayuda -->
+        <button id="helpBtn"
+            class="absolute top-4 left-14 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors p-1 rounded-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </button>
+        <!-- Botones de la esquina superior derecha -->
+        <div id="topRightButtons" class="absolute top-4 right-4 flex items-center gap-4 z-10">
+            <button id="addResponsablesBtn"
+                class="text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors p-1 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                </svg>
+            </button>
+        </div>
+        <!-- Botón para volver -->
+        <button id="mainCloseBtn"
+            class="absolute top-4 right-4 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors hidden p-1 rounded-lg border-2 border-purple-500 dark:border-purple-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+
+        <!-- Interfaz principal -->
+        <div class="flex flex-col gap-4 mb-6">
+            <div id="exportButtonsContainer" class="hidden flex flex-col sm:flex-row gap-2 w-full justify-center pb-2">
+                <button id="downloadImageBtn"
+                    class="menu-item export-button bg-purple-500 hover:bg-purple-600 w-full sm:w-auto">Descargar
+                    Imagen</button>
+                <button id="shareBtn"
+                    class="menu-item export-button bg-blue-500 hover:bg-blue-600 w-full sm:w-auto">Compartir</button>
+                <button id="exportExcelBtn"
+                    class="menu-item export-button bg-green-500 hover:bg-green-600 w-full sm:w-auto">Exportar a
+                    Excel</button>
+                <button id="exportDirectOrderBtn"
+                    class="menu-item export-button bg-indigo-500 hover:bg-indigo-600 w-full sm:w-auto">Exportar Pedido
+                    Directo</button>
+            </div>
+
+            <div id="filterButtonsContainer" class="grid grid-cols-1 sm:grid-cols-4 gap-2 w-full hidden">
+                <button id="filterSelectedBtn" class="filter-button filter-item text-base py-2">Productos
+                    Seleccionados</button>
+                <button id="filterPanesBtn" class="filter-button filter-item text-base py-2">Pedido de Panes</button>
+                <button id="filterPolarBtn" class="filter-button filter-item text-base py-2">Pedido De La Polar</button>
+                <button id="directOrderBtn" class="filter-button filter-item text-base py-2">Pedido Directo</button>
+            </div>
+
+            <div id="searchContainer" class="w-full">
+                <input type="text" id="searchInput" placeholder="Buscar productos o empresas..."
+                    class="w-full p-2 border-2 border-purple-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200 dark:bg-slate-700 dark:border-purple-500 dark:text-gray-200 dark:placeholder-gray-400">
+            </div>
+
+            <div id="companyFiltersContainer" class="flex flex-col gap-2 w-full hidden"></div>
+            <div id="directOrderSearchResultsContainer"
+                class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full"></div>
+        </div>
+
+        <div id="selectedProductsContainer" class="hidden relative mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Productos Seleccionados</h2>
+            <div id="selectedProductsList" class="flex flex-col gap-4"></div>
+        </div>
+
+        <div id="productList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+
+    <!-- Modales -->
+    <div id="calculatorModal" class="modal-overlay hidden">
+        <div class="calculator-modal">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100" id="modalTitle">Cantidad</h3>
+                    <p class="text-gray-600 dark:text-gray-300 text-sm" id="modalProductName">Producto: </p>
+                </div>
+                <button id="closeModalBtn"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="calculator-display" id="calculatorDisplay">0</div>
+            <div class="calculator-buttons-grid">
+                <button class="calculator-button" data-value="7">7</button><button class="calculator-button"
+                    data-value="8">8</button><button class="calculator-button" data-value="9">9</button>
+                <button class="calculator-button" data-value="4">4</button><button class="calculator-button"
+                    data-value="5">5</button><button class="calculator-button" data-value="6">6</button>
+                <button class="calculator-button" data-value="1">1</button><button class="calculator-button"
+                    data-value="2">2</button><button class="calculator-button" data-value="3">3</button>
+                <button class="calculator-button col-span-2" data-value="0">0</button>
+                <button class="calculator-button" data-value="backspace">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 inline-block" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 19l-7-7 7-7m5 14l-7-7 7-7" />
+                    </svg>
+                </button>
+                <button class="calculator-button col-span-3 button-confirm" data-value="confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="previewModal" class="modal-overlay hidden">
+        <div class="preview-content">
+            <button id="closePreviewBtn"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <button id="downloadPreviewIconBtn" class="download-button-icon absolute top-4 right-16">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            </button>
+            <div id="imagePreviewContainer" class="flex flex-col items-center">
+                <img id="previewImage" src="" alt="Vista Previa" class="max-w-full h-auto rounded-lg">
+                <button id="downloadPreviewBtn"
+                    class="mt-6 px-6 py-2 bg-green-500 text-white font-bold rounded-lg shadow-md hover:bg-green-600 transition-colors">Descargar
+                    Imagen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="warningModal" class="modal-overlay hidden">
+        <div class="warning-modal text-center p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4" id="warningTitle">¡Advertencia!</h3>
+            <p class="text-gray-700 dark:text-gray-300 mb-6" id="warningMessage">Si retrocedes, podrías perder los
+                cambios. ¿Estás seguro de que deseas salir?</p>
+            <div class="flex justify-center gap-4">
+                <button id="cancelExitBtn"
+                    class="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-300 dark:hover:bg-gray-500">Cancelar</button>
+                <button id="confirmExitBtn" class="warning-button">Salir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="helpModal" class="modal-overlay hidden">
+        <div class="help-modal p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Ayuda</h3>
+            <ul class="list-disc list-inside text-gray-700 dark:text-gray-300 space-y-2">
+                <li>Haz clic en un producto para añadir o editar la cantidad.</li>
+                <li>Usa los filtros para navegar por categorías.</li>
+                <li>En "Productos Seleccionados" puedes ver y eliminar productos.</li>
+                <li>Usa los botones de exportación para Excel o Imagen.</li>
+                <li>Presiona 'añadir' para incluir responsables.</li>
+            </ul>
+            <button id="closeHelpModalBtn"
+                class="mt-6 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg w-full hover:bg-blue-600">Entendido</button>
+        </div>
+    </div>
+
+    <div id="responsablesModal" class="modal-overlay hidden">
+        <div class="warning-modal text-center p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Añadir Responsables</h3>
+            <div class="flex flex-col gap-4 mb-4">
+                <input type="text" id="responsable1Input" placeholder="Responsable 1"
+                    class="w-full p-2 border border-gray-300 dark:bg-gray-600 dark:border-gray-500 dark:text-white rounded-lg">
+                <input type="text" id="responsable2Input" placeholder="Responsable 2"
+                    class="w-full p-2 border border-gray-300 dark:bg-gray-600 dark:border-gray-500 dark:text-white rounded-lg">
+            </div>
+            <div class="flex justify-between items-center bg-gray-100 dark:bg-slate-700 p-3 rounded-lg mb-6">
+                <span class="font-medium text-gray-800 dark:text-gray-200">Tema Oscuro</span>
+                <label for="darkModeToggle" class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="darkModeToggle" class="sr-only peer">
+                    <div
+                        class="relative w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600">
+                    </div>
+                </label>
+            </div>
+            <div class="flex justify-center gap-4">
+                <button id="cancelResponsablesBtn"
+                    class="bg-gray-200 dark:bg-gray-500 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-300">Cancelar</button>
+                <button id="confirmResponsablesBtn"
+                    class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-600">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts externos -->
+    <script src="data.js" defer></script>
+    <script src="script.js" defer></script>
+</body>
+
+</html>
