@@ -545,16 +545,15 @@ function exportDirectOrderToExcel() {
         return nameA.localeCompare(nameB);
     });
 
-    const ws = XLSX.utils.aoa_to_sheet([]);
+    const data = [];
     const responsablesString = (responsables || []).filter(r => r).join('-');
 
-    // Títulos y encabezados
-    XLSX.utils.sheet_add_aoa(ws, [[`FECHA:${dateStringForHeader}`]], { origin: 'A1' });
-    XLSX.utils.sheet_add_aoa(ws, [['PEDIDO DIRECTO FERIA ESTE']], { origin: 'B1' });
-    XLSX.utils.sheet_add_aoa(ws, [['RESPONSABLE: ' + responsablesString]], { origin: 'A2' });
-    XLSX.utils.sheet_add_aoa(ws, [['PRODUCTO', 'EMPRESA', 'CANTIDAD', 'TOTAL', 'UNIDAD']], { origin: 'A3' });
+    // Títulos y encabezados (Col A y B)
+    data.push([`FECHA:${dateStringForHeader}`, 'PEDIDO DIRECTO FERIA ESTE']);
+    data.push(['RESPONSABLE: ' + responsablesString]);
+    data.push(['PRODUCTO', 'EMPRESA', 'FERIA DEL ESTE', 'TOTAL', 'UNIDAD']);
 
-    const productRows = exportList.map(product => {
+    exportList.forEach(product => {
         // Búsqueda ultra-robusta: por ID numérico y por nombre como respaldo
         const selectedProd = selectedProducts.find(sp =>
             (sp.id && Number(sp.id) === Number(product.id)) ||
@@ -562,6 +561,7 @@ function exportDirectOrderToExcel() {
         );
 
         const quantity = selectedProd ? Number(selectedProd.quantity) : '';
+        const unitLabel = (product.unit || '').toUpperCase();
 
         const productNameForExport = product.name.replace(/"(.*?)"/g, (match, group1) => {
             if (!group1) return '""';
@@ -569,31 +569,33 @@ function exportDirectOrderToExcel() {
             return `"${unitText}"`;
         });
 
-        return [
+        data.push([
             `${product.id || ''}. ${productNameForExport}`,
             product.company || '',
             quantity,
             '', // TOTAL (se llena con fórmula abajo)
-            (product.unit || '').toUpperCase()
-        ];
+            quantity !== '' ? `${quantity} ${unitLabel}` : (unitLabel || '0')
+        ]);
     });
 
-    XLSX.utils.sheet_add_aoa(ws, productRows, { origin: 'A4' });
+    const ws = XLSX.utils.aoa_to_sheet(data);
 
-    // Aplicar fórmulas de TOTAL
-    let excelRowIndex = 4;
+    // Aplicar fórmulas de TOTAL en la columna D (índice 3)
+    let excelRowIndex = 4; // Los datos empiezan en la fila 4 (índice 3 + 1)
     exportList.forEach(() => {
         const row = excelRowIndex;
         const cellAddress = 'D' + row;
-        // Fórmula resiliente
+        // Fórmula que apunta a la columna C (CANTIDAD)
         ws[cellAddress] = { t: 'n', f: `IF(ISNUMBER(C${row}), C${row}, 0)` };
         excelRowIndex++;
     });
 
     if (!ws['!rows']) ws['!rows'] = [];
-    ws['!rows'][1] = { hpt: 24 };
+    ws['!rows'][0] = { hpt: 20 };
+    ws['!rows'][1] = { hpt: 20 };
+    ws['!rows'][2] = { hpt: 24 }; // Fila de encabezados un poco más alta
 
-    ws['!cols'] = [{ width: 50 }, { width: 50 }, { width: 18 }, { width: 12 }, { width: 12 }];
+    ws['!cols'] = [{ width: 50 }, { width: 50 }, { width: 18 }, { width: 12 }, { width: 15 }];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "PEDIDO DIRECTO FERIA ESTE");
