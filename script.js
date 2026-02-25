@@ -99,14 +99,20 @@ function saveState() {
 }
 
 function loadState() {
-    const savedProducts = localStorage.getItem('selectedProducts');
-    const savedResponsables = localStorage.getItem('responsables');
+    try {
+        const savedProducts = localStorage.getItem('selectedProducts');
+        const savedResponsables = localStorage.getItem('responsables');
 
-    if (savedProducts) {
-        selectedProducts = JSON.parse(savedProducts);
-    }
-    if (savedResponsables) {
-        responsables = JSON.parse(savedResponsables);
+        if (savedProducts) {
+            selectedProducts = JSON.parse(savedProducts) || [];
+        }
+        if (savedResponsables) {
+            responsables = JSON.parse(savedResponsables) || ['', ''];
+        }
+    } catch (e) {
+        console.error("Error loading state:", e);
+        selectedProducts = [];
+        responsables = ['', ''];
     }
 }
 
@@ -534,22 +540,27 @@ function exportDirectOrderToExcel() {
 
     // Ordenar alfabéticamente por nombre de producto
     exportList.sort((a, b) => {
-        const nameA = a.name.replace(/[•.-]/g, '').trim().toUpperCase();
-        const nameB = b.name.replace(/[•.-]/g, '').trim().toUpperCase();
+        const nameA = String(a.name || '').replace(/[•.-]/g, '').trim().toUpperCase();
+        const nameB = String(b.name || '').replace(/[•.-]/g, '').trim().toUpperCase();
         return nameA.localeCompare(nameB);
     });
 
     const ws = XLSX.utils.aoa_to_sheet([]);
-    const responsablesString = responsables.filter(r => r).join('-');
+    const responsablesString = (responsables || []).filter(r => r).join('-');
 
-    // Títulos y encabezados con origen específico para asegurar el diseño de la imagen
+    // Títulos y encabezados
     XLSX.utils.sheet_add_aoa(ws, [[`FECHA:${dateStringForHeader}`]], { origin: 'A1' });
     XLSX.utils.sheet_add_aoa(ws, [['PEDIDO DIRECTO FERIA ESTE']], { origin: 'B1' });
     XLSX.utils.sheet_add_aoa(ws, [['RESPONSABLE: ' + responsablesString]], { origin: 'A2' });
-    XLSX.utils.sheet_add_aoa(ws, [['PRODUCTO', 'EMPRESA', 'FERIA DEL ESTE', 'TOTAL', 'UNIDAD']], { origin: 'A3' });
+    XLSX.utils.sheet_add_aoa(ws, [['PRODUCTO', 'EMPRESA', 'CANTIDAD', 'TOTAL', 'UNIDAD']], { origin: 'A3' });
 
     const productRows = exportList.map(product => {
-        const selectedProd = selectedProducts.find(sp => Number(sp.id) === Number(product.id));
+        // Búsqueda ultra-robusta: por ID numérico y por nombre como respaldo
+        const selectedProd = selectedProducts.find(sp =>
+            (sp.id && Number(sp.id) === Number(product.id)) ||
+            (sp.name && sp.name === product.name)
+        );
+
         const quantity = selectedProd ? Number(selectedProd.quantity) : '';
 
         const productNameForExport = product.name.replace(/"(.*?)"/g, (match, group1) => {
@@ -559,22 +570,23 @@ function exportDirectOrderToExcel() {
         });
 
         return [
-            `${product.id}. ${productNameForExport}`,
-            product.company,
+            `${product.id || ''}. ${productNameForExport}`,
+            product.company || '',
             quantity,
-            '', // TOTAL (se llena con fórmula)
-            product.unit.toUpperCase()
+            '', // TOTAL (se llena con fórmula abajo)
+            (product.unit || '').toUpperCase()
         ];
     });
 
     XLSX.utils.sheet_add_aoa(ws, productRows, { origin: 'A4' });
 
-    let excelRowIndex = 4; // Los productos empiezan en la fila 4
+    // Aplicar fórmulas de TOTAL
+    let excelRowIndex = 4;
     exportList.forEach(() => {
         const row = excelRowIndex;
-        const cellAddress = 'D' + row; // Columna D es TOTAL
-        // Fórmula simplificada que apunta a la columna C
-        ws[cellAddress] = { t: 'n', f: `C${row}` };
+        const cellAddress = 'D' + row;
+        // Fórmula resiliente
+        ws[cellAddress] = { t: 'n', f: `IF(ISNUMBER(C${row}), C${row}, 0)` };
         excelRowIndex++;
     });
 
